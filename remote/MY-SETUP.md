@@ -9,6 +9,26 @@
 
 ---
 
+## 先搞清楚：项目里的小模型分两类，角色相反
+
+```
+攻击者(Qwen3.8-27B) ─攻击→ 【保安】检测器(小模型①) ─放行→ 【靶子】victim(小模型②)
+                              拦截=防御成功              被骗出有害内容=攻击成功
+```
+
+| 角色 | 是哪些模型 | 身份 | 怎么配置 |
+|---|---|---|---|
+| **检测器** | deberta / prompt-guard / ppl-window / keyword | **保安——实验主角，你测的就是它** | 名单制：`DETECTORS_TO_COMPARE="a b c" bash remote/compare_detectors.sh`；模型路径在 models.env 的 `DETECTOR_MODEL_OVERRIDES` 配 |
+| **victim** | qwen2.5 / smollm 等（见 ams/victim_registry.py） | 靶子——攻击穿过保安后要打的目标，被越狱才算保安失职 | 单配制：`python remote/serve_victim_hf.py --id qwen2.5-1.5b --port 8001`，换靶子=换 --id 重启 |
+| 攻击者/裁判 | Qwen3.8-27B | 考核工具，不用动 | config.yaml 三处 base_url/model |
+
+为什么必须有 victim：绕过检测器≠攻击成功（乱码也能骗过检测器）；必须真的让一个正常
+模型输出有害内容才算数。所以 victim 随便选个正常的（默认 qwen2.5-1.5b）即可，不用纠结。
+
+测你自己的检测模型：`cd detectors && python serve_detector.py --id deberta-injection-v2 --model /你的模型目录 --port 8820`（任何 HF 格式分类模型都能挂）。
+
+---
+
 ## 第 1 步：确认你已有的 llama-server 地址和模型名（1 分钟）
 
 ```bash
