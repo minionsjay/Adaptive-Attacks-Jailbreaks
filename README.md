@@ -16,11 +16,15 @@
 
 ---
 
-## 0. 不知道从哪开始？
+## 0. 不知道从哪开始？按你的情况选：
 
-**模型已经下载到 V100 机器、想直接跑起来看结果 → 先看这份手把手手册：**
-**[`remote/QUICKSTART.md`](remote/QUICKSTART.md)**（每步命令 + "看到什么算成功" + 结果解读 + 常见报错表）。
-本 README 的其余部分是架构与设计说明，跑通后回头查阅即可。
+| 你的情况 | 看哪份 |
+|---|---|
+| **两台机器网络不通（git 传输）+ llama.cpp 已在跑 Qwen3.8，只想对比小检测器** | ★ [`remote/MY-SETUP.md`](remote/MY-SETUP.md)（4 步接入 + 一条命令出排行榜） |
+| 从零开始：模型还没下载、环境还没装 | [`remote/QUICKSTART.md`](remote/QUICKSTART.md)（手把手：每步命令 + "看到什么算成功"） |
+| git 中转传输的具体命令 | [`remote/GIT.md`](remote/GIT.md) |
+
+本 README 其余部分是架构与设计说明，跑通后回头查阅即可。
 
 ## 1. 快速开始
 
