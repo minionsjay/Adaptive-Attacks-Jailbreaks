@@ -23,8 +23,44 @@ score 归一化：0=安全 1=恶意（按 UNSAFE/INJECTION/JAILBREAK 类求和�
 """
 import argparse
 import os
+import re
 import time
 from typing import Optional
+
+
+def _load_models_env():
+    """读取 remote/models.env（KEY="VALUE" 行），不依赖 shell source"""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "..", "remote", "models.env")
+    if not os.path.exists(p):
+        return {}
+    out = {}
+    for line in open(p, encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r'(?:export\s+)?([A-Z_]+)=(?:"([^"]*)"|(\S+))', line)
+        if m:
+            out[m.group(1)] = (m.group(2) or m.group(3) or "").strip()
+    return out
+
+
+def resolve_model_source(det_id, override_arg=None):
+    """模型来源优先级:
+    --model 参数 > models.env 的 DETECTOR_MODEL_OVERRIDES(id=路径,逗号分隔) > 注册表 model_id
+    返回 本地目录 / 替换的 HF id / None(用注册表默认)"""
+    if override_arg:
+        return override_arg
+    env = _load_models_env()
+    # 环境变量（shell export）与 models.env 文件两条来源，环境变量优先
+    ovr = os.environ.get("DETECTOR_MODEL_OVERRIDES", "") or \
+        env.get("DETECTOR_MODEL_OVERRIDES", "")
+    for part in re.split(r"[,;\s]+", ovr):
+        if "=" in part:
+            k, v = part.split("=", 1)
+            if k.strip() == det_id and v.strip():
+                return v.strip()
+    return None
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -269,30 +305,36 @@ class LlamaGuardBackend(DetectorBackend):
                 "raw_output": ans[:30], "threshold": self.threshold}
 
 
-def build_backend(det_id: str, device: Optional[str] = None) -> DetectorBackend:
+def build_backend(det_id: str, device: Optional[str] = None,
+                  model_source: Optional[str] = None) -> DetectorBackend:
     cfg = get_detector_cfg(det_id)
     dev = device or os.environ.get("DEVICE", "cpu")
+    src = model_source or cfg.get("model_id")
     if cfg["kind"] == "keyword":
         return KeywordBackend()
     if cfg["kind"] == "classifier":
-        return HFClassifierBackend(cfg["model_id"], device=dev,
+        return HFClassifierBackend(src, device=dev,
                                    threshold=cfg.get("threshold", 0.5))
     if cfg["kind"] == "generative":
-        return GenerativeGuardBackend(cfg["model_id"], device=dev,
+        return GenerativeGuardBackend(src, device=dev,
                                       threshold=cfg.get("threshold", 0.5))
     if cfg["kind"] == "perplexity":
         thr = cfg.get("threshold", None)
-        return PPLWindowBackend(cfg["model_id"], device=dev,
+        return PPLWindowBackend(src, device=dev,
                                 threshold=float(thr) if thr else None)
     if cfg["kind"] == "llamaguard":
-        return LlamaGuardBackend(cfg["model_id"], device=dev,
+        return LlamaGuardBackend(src, device=dev,
                                  threshold=cfg.get("threshold", 0.5))
     raise ValueError(cfg["kind"])
 
 
-def create_app(det_id: str, device: Optional[str] = None):
+def create_app(det_id: str, device: Optional[str] = None,
+               model_source: Optional[str] = None):
     cfg = get_detector_cfg(det_id)
-    backend = build_backend(det_id, device)
+    src = model_source or resolve_model_source(det_id)
+    if src and src != cfg.get("model_id"):
+        print(f"[serve_detector] 模型来源覆盖: {det_id} -> {src}")
+    backend = build_backend(det_id, device, model_source=src)
     app = FastAPI(title=f"AMS detector: {det_id}")
 
     class DetectReq(BaseModel):
@@ -354,13 +396,15 @@ def main():
     ap.add_argument("--port", type=int, default=None)
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--device", default=None, help="cpu / cuda / cuda:0")
+    ap.add_argument("--model", default=None,
+                    help="覆盖模型来源：本地目录路径或替换的 HF id（优先于注册表）")
     args = ap.parse_args()
     cfg = get_detector_cfg(args.id)
     port = args.port or int(cfg.get("default_url", "http://localhost:8810")
                             .rsplit(":", 1)[-1])
     print(f"[serve_detector] id={args.id} model={cfg.get('model_id')} "
           f"kind={cfg['kind']} port={port} device={args.device or 'cpu'}")
-    app = create_app(args.id, args.device)
+    app = create_app(args.id, args.device, model_source=args.model)
     uvicorn.run(app, host=args.host, port=port, log_level="warning")
 
 

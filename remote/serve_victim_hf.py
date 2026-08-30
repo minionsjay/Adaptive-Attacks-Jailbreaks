@@ -24,6 +24,23 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 
+def _load_models_env():
+    """读取 remote/models.env（不依赖 shell source）"""
+    import re
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models.env")
+    if not os.path.exists(p):
+        return {}
+    out = {}
+    for line in open(p, encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r'(?:export\s+)?([A-Z_]+)=(?:"([^"]*)"|(\S+))', line)
+        if m:
+            out[m.group(1)] = (m.group(2) or m.group(3) or "").strip()
+    return out
+
+
 app = FastAPI(title="ams-victim-hf")
 STATE = {"tok": None, "model": None, "device": "cpu", "alias": "victim"}
 
@@ -81,6 +98,8 @@ def main():
                     help="HF 缓存目录（也可用环境变量 HF_HOME / models.env 统一配置）")
     args = ap.parse_args()
 
+    # 优先级: --hf 参数 > --id 注册表 > models.env 的 VICTIM_HF_MODEL > 默认
+    env = _load_models_env()
     hf_id = args.hf
     if not hf_id and args.id:
         from ams.victim_registry import VICTIMS
@@ -90,7 +109,9 @@ def main():
         hf_id = VICTIMS[args.id]["hf_id"]
         args.alias = args.alias or VICTIMS[args.id]["hf_id"].split("/")[-1]
     if not hf_id:
-        hf_id = "Qwen/Qwen2.5-1.5B-Instruct"
+        hf_id = env.get("VICTIM_HF_MODEL") or "Qwen/Qwen2.5-1.5B-Instruct"
+        if hf_id.startswith("/"):
+            args.alias = args.alias or os.path.basename(hf_id)
     if args.hf_home:
         os.environ["HF_HOME"] = args.hf_home   # 自动下载/缓存位置
     device = args.device or os.environ.get("DEVICE", "cpu")

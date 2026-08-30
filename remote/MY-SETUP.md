@@ -131,6 +131,37 @@ COMPARE_OUT=redteam_output_smollm bash remote/compare_detectors.sh
 victim 名单：`qwen2.5-1.5b`（稳健组）/ `smollm2-360m`、`tinyllama-1.1b`（沦陷组）/
 `r1-distill-qwen-1.5b`（推理蒸馏）等，见 `ams/victim_registry.py`。
 
+## 自己下载小模型、自己指定路径（完全可以）
+
+检测器 / victim 都支持"你下载到哪、配置指向哪"，全自动下载只是备选。
+
+**1) 自己下载（想放哪放哪；门控模型先 `huggingface-cli login`）**：
+```bash
+# 检测器
+huggingface-cli download protectai/deberta-v3-base-prompt-injection-v2 --local-dir /data/models/deberta-inj-v2
+huggingface-cli download meta-llama/Prompt-Guard-86M --local-dir /data/models/prompt-guard-86m
+# victim
+huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir /data/models/Qwen2.5-1.5B-Instruct
+```
+
+**2) 在 `remote/models.env` 里指路径**（一处配置，所有脚本生效）：
+```bash
+DETECTOR_MODEL_OVERRIDES="deberta-injection-v2=/data/models/deberta-inj-v2, prompt-guard-86m=/data/models/prompt-guard-86m"
+VICTIM_HF_MODEL="/data/models/Qwen2.5-1.5B-Instruct"
+```
+
+**3) 之后照常跑**（compare_detectors.sh / serve_detectors.sh 自动读取上面的配置）：
+```bash
+bash remote/compare_detectors.sh
+```
+
+优先级：`--model`/`--hf` 命令行参数 > `models.env` 配置 > 按 HF id 自动下载。
+临时替换某个检测器也可直接：
+```bash
+cd detectors && python serve_detector.py --id deberta-injection-v2 --model /data/models/别的检测模型 --port 8820
+```
+本地目录里需含 `config.json` / tokenizer / 权重文件（`--local-dir` 下载下来就是完整的）。
+
 ## 常见问题（这个场景专属）
 
 | 症状 | 解决 |
