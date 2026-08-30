@@ -189,8 +189,19 @@ Gen  3: 8 候选 | JB 5 | 绕过 3 | det均分 0.21 | 412s | langs=['zh-CN','pin
 ├── report_exp_xxx.json      ← 同内容的机器可读版
 ├── candidates.jsonl         ← 每条攻击的完整记录（prompt/检测分/victim回复/判定）
 ├── redteam.db               └─ 同上，SQLite 版
+├── mutator_io/gen1.txt ...  ← ★ 每一代攻击者(27B)的完整输入+原始输出（人类可读）
+├── llm_io/mutator.jsonl     ← 全部角色每次调用的完整输入/输出（机器可读）：
+│      critic.jsonl             mutator=攻击者 / critic=打分 / judge=判定
+│      judge.jsonl              victim=被攻击模型的逐字回复
+│      victim.jsonl
 └── exports/training_data_*.jsonl  ← 可直接喂检测器对抗训练的回流数据
 ```
+
+**想看 27B 攻击者到底"说"了什么**：
+- 每代一份可读文件 `mutator_io/gen<N>.txt`：完整喂给它的内容（防御说明书/灵感组合/
+  critic 建议/场景）+ 它的原样回复
+- 终端也有摘要：`✎ Mutator 输入: ...` 和 `✎ Mutator 原始输出预览: ...` 两行
+- 事后分析：`python -c "import json;[print(json.loads(l)['response'][:200]) for l in open('redteam_output/llm_io/mutator.jsonl')]"`
 
 ### 报告怎么看（只看这 5 处）
 

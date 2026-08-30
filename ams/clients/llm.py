@@ -126,7 +126,7 @@ class RobustLLM:
 
     def __init__(self, role, base_url, model, api_key="EMPTY", temperature=0.7,
                  max_tokens=1024, max_retries=3, timeout=300, tracker=None,
-                 rps_limit=10.0, chat_kwargs=None):
+                 rps_limit=10.0, chat_kwargs=None, io_logfile=None):
         self.role = role
         self.url = base_url.rstrip("/")
         self.model = model
@@ -140,6 +140,8 @@ class RobustLLM:
         self._last = 0.0
         # 额外请求体参数（如 Qwen3 思考模型: {chat_template_kwargs: {enable_thinking: false}}）
         self.chat_kwargs = dict(chat_kwargs or {})
+        # 完整输入/输出落盘（JSONL 追加：messages + 响应 + usage）
+        self.io_logfile = io_logfile
 
     def chat(self, messages, temperature=None, max_tokens=None, **extra):
         temp = self.temperature if temperature is None else temperature
@@ -172,6 +174,7 @@ class RobustLLM:
                     self.role, self.model, usage.get("prompt_tokens", 0),
                     usage.get("completion_tokens", 0), lat, True, cost,
                     time.strftime("%Y-%m-%dT%H:%M:%S")))
+                self._io_log(messages, content, fr, usage, lat)
                 return content, {"usage": usage, "finish_reason": fr,
                                  "latency_ms": lat, "cost_usd": cost}
             except requests.exceptions.Timeout:
@@ -188,6 +191,28 @@ class RobustLLM:
             self.role, self.model, 0, 0, (time.time() - t0) * 1000,
             False, 0.0, time.strftime("%Y-%m-%dT%H:%M:%S"), "all retries failed"))
         return "", {"error": "failed"}
+
+    def _io_log(self, messages, content, finish_reason, usage, latency_ms):
+        """把这次调用的完整输入输出追加到 JSONL（永不中断主流程）"""
+        if not self.io_logfile:
+            return
+        try:
+            import json as _json
+            import os as _os
+            _os.makedirs(_os.path.dirname(self.io_logfile), exist_ok=True)
+            rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                   "role": self.role, "model": self.model,
+                   "messages": [{"role": m.get("role"),
+                                 "content": m.get("content", "")}
+                                for m in messages],
+                   "response": content,
+                   "finish_reason": finish_reason,
+                   "latency_ms": round(latency_ms, 1),
+                   "usage": usage}
+            with open(self.io_logfile, "a", encoding="utf-8") as f:
+                f.write(_json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+        except Exception:
+            pass
 
     def health(self):
         """探测 /models 是否可用（OpenAI 兼容端点均支持）"""

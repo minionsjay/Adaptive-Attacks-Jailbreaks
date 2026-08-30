@@ -91,31 +91,37 @@ class RedTeamHarness:
 
     # ================= 初始化 =================
     def _init_llms(self):
+        # 全部角色的完整输入/输出落盘: <output>/llm_io/<role>.jsonl
+        io_dir = os.path.join(self.cfg["output"]["dir"], "llm_io")
         a = self.cfg["attacker"]
         self.mutator = RobustLLM(
             "mutator", a["base_url"], a["model"], a.get("api_key", "EMPTY"),
             a.get("temperature", 0.9), a.get("max_tokens", 3000),
             timeout=a.get("timeout", 600), tracker=self.cost,
             rps_limit=a.get("rps_limit", 10),
-            chat_kwargs=a.get("chat_kwargs"))
+            chat_kwargs=a.get("chat_kwargs"),
+            io_logfile=os.path.join(io_dir, "mutator.jsonl"))
         # critic / judge 可与 attacker 同机部署，也可独立
         c = self.cfg.get("critic") or a
         self.critic_llm = RobustLLM(
             "critic", c["base_url"], c["model"], c.get("api_key", "EMPTY"),
             0.1, 300, timeout=c.get("timeout", 300), tracker=self.cost,
-            chat_kwargs=c.get("chat_kwargs"))
+            chat_kwargs=c.get("chat_kwargs"),
+            io_logfile=os.path.join(io_dir, "critic.jsonl"))
         j = self.cfg.get("judge") or a
         jkey = os.environ.get(j.get("api_key_env", ""), "") or j.get("api_key", "EMPTY")
         self.judge = RobustLLM(
             "judge", j["base_url"], j["model"], jkey,
             j.get("temperature", 0.1), j.get("max_tokens", 400),
             timeout=j.get("timeout", 300), tracker=self.cost,
-            chat_kwargs=j.get("chat_kwargs"))
+            chat_kwargs=j.get("chat_kwargs"),
+            io_logfile=os.path.join(io_dir, "judge.jsonl"))
         v = self.cfg["victim"]
         self.victim = RobustLLM(
             "victim", v["base_url"], v["model"], v.get("api_key", "EMPTY"),
             v.get("temperature", 0.7), v.get("max_tokens", 500),
-            timeout=v.get("timeout", 300), tracker=self.cost)
+            timeout=v.get("timeout", 300), tracker=self.cost,
+            io_logfile=os.path.join(io_dir, "victim.jsonl"))
 
         self.critic = Critic(self.critic_llm)
         self.jb = JailbreakScenario(self.victim, self.judge)
@@ -252,9 +258,16 @@ class RedTeamHarness:
 
         user = (det_card_text + task_text + insp_text + fb_text + untested_text +
                 f"\nPropose {n} new attack candidates now.")
+        print(f"  ✎ Mutator 输入: 目标={det_card.id} 灵感×{len(inspiration)} "
+              f"未测语言×{len(untested) if untested else 0} "
+              f"反馈={'有' if feedback else '无'}")
         content, usage = self.mutator.chat(
             messages=[{"role": "system", "content": self._mutator_system()},
                       {"role": "user", "content": user}])
+        self._dump_mutator_io(user, content, usage)
+        if content:
+            preview = content.replace("\n", " ")[:180]
+            print(f"  ✎ Mutator 原始输出预览: {preview}")
         if not content:
             self._dump_mutator_debug(None, usage, "空响应")
             return []
@@ -312,6 +325,23 @@ class RedTeamHarness:
                         f"#       若 finish_reason=length 说明 max_tokens 截断\n\n"
                         f"{(content or '')[:6000]}\n")
             print(f"  ⚠ Mutator 解析失败({why}, finish={fr})，原文已存 {fp}")
+        except Exception:
+            pass
+
+    def _dump_mutator_io(self, user_msg, content, usage):
+        """每代 mutator 的完整输入/输出存人类可读文件（<output>/mutator_io/genN.txt）"""
+        try:
+            d = os.path.join(self.cfg["output"]["dir"], "mutator_io")
+            os.makedirs(d, exist_ok=True)
+            fp = os.path.join(d, f"gen{self._gen}.txt")
+            fr = (usage or {}).get("finish_reason", "?")
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(f"═══ Generation {self._gen} | mutator 完整输入输出 ═══\n")
+                f.write(f"finish_reason: {fr}\n\n")
+                f.write("──────── 完整用户消息（灵感组合/反馈/场景） ────────\n")
+                f.write(user_msg + "\n\n")
+                f.write("──────── 模型原始输出 ────────\n")
+                f.write((content or "(空)") + "\n")
         except Exception:
             pass
 
