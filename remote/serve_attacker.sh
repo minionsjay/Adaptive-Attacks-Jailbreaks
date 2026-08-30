@@ -21,7 +21,7 @@ AMS_HOME="${AMS_HOME:-$HOME/ams}"
 MODEL_PATH="${MODEL_PATH:-${ATTACKER_GGUF:-}}"
 MODEL_DIR="${MODEL_DIR:-$AMS_HOME/models}"
 QUANT="${QUANT:-Q5_K_P}"
-CTX="${CTX:-16384}"
+CTX="${CTX:-32768}"   # 注意: -c 会被 --parallel 平分（32K/4=每slot 8K）
 PORT="${PORT:-8000}"
 FA="${FA:-0}"                       # Volta 建议关
 SPEC="${SPEC:-embedded}"            # embedded | off

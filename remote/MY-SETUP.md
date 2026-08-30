@@ -21,6 +21,10 @@ curl -s http://127.0.0.1:8000/v1/models
 {"data":[{"id":"Qwen3.8-27B-Uncensored-...-Q5_K_P.gguf","object":"model"}]}
 ```
 
+> 💡 **llama-server 本身的启动参数不知道怎么设？**（量化怎么选、上下文多少、
+> FastMTP 那个 903MB 文件要不要用）→ 看 **[`LLAMA-SERVER.md`](LLAMA-SERVER.md)**，
+> 有逐参数说明和直接抄的命令。
+
 ## 第 2 步：改配置指向它（1 分钟）
 
 ```bash
