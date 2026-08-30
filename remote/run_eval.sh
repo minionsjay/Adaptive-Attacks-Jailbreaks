@@ -22,4 +22,11 @@ echo "[run_eval] 项目目录: $HERE"
 echo "[run_eval] 配置: $CONFIG（单机模式，全部服务 localhost）"
 echo "[run_eval] 参数: $*"
 
+# 终端输出的同时全部落盘日志（含每一代、每条候选的实时行）
+LOG_DIR="${AMS_LOG_DIR:-$HERE/redteam_output}/logs"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/run_$(date +%Y%m%d_%H%M%S).log"
+echo "[run_eval] 日志: $LOG"
+exec > >(tee -a "$LOG") 2>&1
+
 python main.py -c "$CONFIG" "$@"

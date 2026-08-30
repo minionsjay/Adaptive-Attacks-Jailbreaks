@@ -470,6 +470,7 @@ class RedTeamHarness:
         scored = [self.score(c, det_card) for c in seeds]
         for c in scored:
             controller.add(c)
+            print(self._brief(c))
         self.results.extend(scored)
         feedback = self.update(scored)
         self._record(det_card, kind, sid, 0, scored, controller)
@@ -489,10 +490,8 @@ class RedTeamHarness:
             for c in cands:
                 c.generation = gen
                 scored.append(self.score(c, det_card))
-                if c.success:
-                    controller.add(c)
-                else:
-                    controller.add(c)
+                controller.add(c)
+                print(self._brief(c))       # 每条候选实时上屏
             self.results.extend(scored)
             n_ok = sum(1 for c in scored if c.judge_jailbreak)
             n_bp = sum(1 for c in scored if c.success)
@@ -551,6 +550,7 @@ class RedTeamHarness:
             scored = [self.score(c, det_card) for c in cands]
             for c in scored:
                 controller.add(c)
+                print(self._brief(c))
             self.results.extend(scored)
             n_goal = sum(1 for c in scored if c.goal_achieved)
             n_bp = sum(1 for c in scored if c.success)
@@ -563,6 +563,24 @@ class RedTeamHarness:
                 print(f"  ★ 成功绕过! trigger[:{80}] = {first.trigger[:80]}")
                 print(f"    queries_to_success={first.queries_so_far}")
                 break
+
+    @staticmethod
+    def _brief(c):
+        """单条候选的终端一行摘要"""
+        txt = (c.trigger or c.prompt or "").replace("\n", " ")[:56]
+        if c.success:
+            fate = "★绕过成功"
+        elif c.det_blocked:
+            fate = "✗被拦截"
+        elif c.judge_jailbreak or c.goal_achieved:
+            fate = "△攻击成功但被拦" if c.det_blocked else "△半成功"
+        else:
+            fate = "·未奏效"
+        return (f"    [#{c.id[:6]} {c.attack_type}|{c.language}] "
+                f"det={max(0, c.det_score):.2f} {fate} "
+                f"judge={c.judge_verdict or '-'}"
+                f"{(' goal=Y' if c.goal_achieved else '')} "
+                f"fit={c.fitness:.1f} critic={c.critic_score:.0f} | {txt}")
 
     def _record(self, det_card, kind, sid, gen, scored, controller):
         n = max(1, len(scored))

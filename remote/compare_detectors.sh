@@ -33,6 +33,12 @@ OUT="${COMPARE_OUT:-redteam_output_compare}"
 CFG=/tmp/ams_compare_cfg.yaml
 mkdir -p "$OUT"
 
+# 终端输出的同时全部落盘日志
+LOG_DIR="$OUT/logs"; mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/compare_$(date +%Y%m%d_%H%M%S).log"
+echo "[compare] 日志: $LOG"
+exec > >(tee -a "$LOG") 2>&1
+
 # 路径配置（HF_HOME 等）
 ENV_FILE="$HERE/remote/models.env"
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
