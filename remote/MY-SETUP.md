@@ -134,6 +134,9 @@ COMPARE_OUT=redteam_output_smollm bash remote/compare_detectors.sh
 victim 名单：`qwen2.5-1.5b`（稳健组）/ `smollm2-360m`、`tinyllama-1.1b`（沦陷组）/
 `r1-distill-qwen-1.5b`（推理蒸馏）等，见 `ams/victim_registry.py`。
 
+> 📋 **两篇论文用过的小模型完整盘点**（59 个 SLM victim 阵容、全部防御、
+> judge/mutator 模型，含论文 ASR 数字和推荐实验组合）→ 看 **[`MODELS.md`](MODELS.md)**
+
 ## 需要下载哪些小模型 + 一键下载
 
 **免登录（直接下）**：
