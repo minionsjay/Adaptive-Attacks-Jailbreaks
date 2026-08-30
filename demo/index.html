@@ -516,9 +516,9 @@ POST /v1/detect  {"text": "...", "return_all": true, "context": "..."}
   <div class="tbl-wrap"><table>
     <tr><th>id</th><th>模型</th><th>规模</th><th>类别</th><th>标签</th><th>门控</th><th>说明</th></tr>
     <tr><td><code>deberta-injection-v2</code></td><td>ProtectAI deberta-v3-base-prompt-injection-<b>v2</b></td><td><b>184M</b></td><td>分类器</td><td>SAFE / INJECTION</td><td><span class="chip ok">开放</span></td><td>生产部署最常见；对指令式注入敏感、对业务话术伪装弱</td></tr>
-    <tr><td><code>prompt-guard-86m</code></td><td>Meta PromptGuard v1</td><td><b>86M</b></td><td>分类器</td><td>BENIGN / INJECTION / <b>JAILBREAK</b></td><td><span class="chip ok">开放</span></td><td>唯一 3 分类 86M 检测器，越狱+注入双覆盖</td></tr>
-    <tr><td><code>prompt-guard-2-86m</code></td><td>Meta Llama Prompt Guard 2</td><td><b>86M</b></td><td>分类器</td><td>SAFE / UNSAFE</td><td><span class="chip ok">开放</span></td><td>v2 代，训练数据扩了多语言与编码攻击</td></tr>
-    <tr><td><code>prompt-guard-2-22m</code></td><td>Meta Llama Prompt Guard 2</td><td><b>22M</b></td><td>分类器</td><td>SAFE / UNSAFE</td><td><span class="chip ok">开放</span></td><td>蒸馏版，检测能力下限基线</td></tr>
+    <tr><td><code>prompt-guard-86m</code></td><td>Meta PromptGuard v1</td><td><b>86M</b></td><td>分类器</td><td>BENIGN / INJECTION / <b>JAILBREAK</b></td><td><span class="chip mid">HF_TOKEN</span></td><td>唯一 3 分类 86M 检测器，越狱+注入双覆盖</td></tr>
+    <tr><td><code>prompt-guard-2-86m</code></td><td>Meta Llama Prompt Guard 2</td><td><b>86M</b></td><td>分类器</td><td>SAFE / UNSAFE</td><td><span class="chip mid">HF_TOKEN</span></td><td>v2 代，训练数据扩了多语言与编码攻击</td></tr>
+    <tr><td><code>prompt-guard-2-22m</code></td><td>Meta Llama Prompt Guard 2</td><td><b>22M</b></td><td>分类器</td><td>SAFE / UNSAFE</td><td><span class="chip mid">HF_TOKEN</span></td><td>蒸馏版，检测能力下限基线</td></tr>
     <tr><td><code>prompt-guard-2-2b</code></td><td>Meta Llama Prompt Guard 2</td><td><b>2B</b></td><td>生成式</td><td>safe / unsafe</td><td><span class="chip mid">HF_TOKEN</span></td><td>需求中的"2B 检测器"；Llama 许可需在 HF 接受后取 token，建议放 GPU</td></tr>
     <tr><td><code>deberta-injection-v1</code></td><td>ProtectAI v1</td><td><b>184M</b></td><td>分类器</td><td>SAFE / INJECTION</td><td><span class="chip ok">开放</span></td><td>版本间鲁棒性对比</td></tr>
     <tr><td><code>keyword-baseline</code></td><td>关键词/正则规则</td><td><b>规则</b></td><td>规则</td><td>SAFE / UNSAFE</td><td><span class="chip ok">零下载</span></td><td>工业第一道防线；验证"反馈泄漏放大脆弱性"</td></tr>

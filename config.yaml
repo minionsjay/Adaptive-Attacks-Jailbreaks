@@ -62,13 +62,14 @@ defense_middleware:
 
 # ---------- 被测检测器（注册表 id → remote/serve_detectors.sh 拉起）----------
 detectors:
-  - deberta-injection-v2       # ProtectAI 184M（生产最常见）
-  - prompt-guard-86m           # Meta v1 86M（唯一含 JAILBREAK 类的 86M 检测器）
+  - deberta-injection-v2       # ProtectAI 184M（生产最常见，免登录）
   - keyword-baseline           # 规则基线（无需下载，永远可用）
+  # ---- 以下需 HF 账号接受许可 + huggingface-cli login ----
+  # - prompt-guard-86m         # Meta v1 86M（唯一含 JAILBREAK 类；实测需 login）
+  # - ppl-window               # 困惑度滑窗（Qwen2.5-1.5B 底座，免登录 3GB）
   # ---- 09-SmallLM-Jailbreak 论文防御复现 ----
-  # - ppl-window               # 困惑度滑窗检测（GPT-2 底座, 窗口10/阈值6.031）
   # - llama-guard-3-1b         # Llama Guard 3 1B（需 HF_TOKEN）
-  # - prompt-guard-2-86m       # Meta v2 86M（SAFE/UNSAFE）
+  # - prompt-guard-2-86m       # Meta v2 86M（需 HF_TOKEN）
   # - prompt-guard-2-2b        # Meta 2B（需 HF_TOKEN，见 remote/DEPLOY.md）
 
 # ---------- 进化参数（论文搜索方法设定）----------

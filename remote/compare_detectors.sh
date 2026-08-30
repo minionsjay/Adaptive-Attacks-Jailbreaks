@@ -6,7 +6,7 @@
 #         → 最后汇总成 comparison.md 排行榜。
 #
 # 用法（V100 机器，项目根目录）:
-#   # 默认对比 3 个无门控检测器（越狱模式，小规模参数）:
+#   # 默认对比 3 个免登录检测器: 规则 / DeBERTa 184M / PPL窗(1.5B底座):
 #   bash remote/compare_detectors.sh
 #
 #   # 自定义名单 / 模式 / 规模:
@@ -25,7 +25,7 @@ if [ -f "${AMS_HOME:-$HOME/ams}/venv/bin/activate" ]; then
   source "${AMS_HOME:-$HOME/ams}/venv/bin/activate"
 fi
 
-LIST="${DETECTORS_TO_COMPARE:-keyword-baseline deberta-injection-v2 prompt-guard-86m}"
+LIST="${DETECTORS_TO_COMPARE:-keyword-baseline deberta-injection-v2 ppl-window}"
 MODE="${MODE:-jailbreak}"
 GEN="${GENERATIONS:-5}"
 POP="${POPULATION:-6}"

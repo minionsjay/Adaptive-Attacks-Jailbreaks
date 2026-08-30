@@ -10,7 +10,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"     # redteam/
-DETECTORS="${DETECTORS:-deberta-injection-v2 prompt-guard-86m keyword-baseline}"
+DETECTORS="${DETECTORS:-deberta-injection-v2 keyword-baseline}"
 export DEVICE="${DEVICE:-cpu}"
 # 读取统一路径配置 remote/models.env（HF_HOME 控制检测器下载位置）
 ENV_FILE="$(cd "$(dirname "$0")" && pwd)/models.env"

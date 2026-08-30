@@ -95,7 +95,8 @@ python serve_victim_hf.py --id qwen2.5-1.5b --port 8001
 ```bash
 bash serve_detectors.sh
 ```
-它默认拉起 3 个检测器（deberta 184M / prompt-guard-86m / keyword 规则），首次各下载几百 MB。
+它默认拉起 2 个免登录检测器（deberta 184M / keyword 规则）；首次下载几百 MB。
+（Meta 系 PromptGuard 实测都需要 HF login，加名单前先 `huggingface-cli login`）
 **成功标志**：三行 `[detector] xxx -> :88xx` 之后没有报错。
 **验证**：
 ```bash
@@ -138,7 +139,7 @@ tmux a -t ams                # 查看所有窗口；Ctrl+B 数字键切换
 bash run_eval.sh --dry-run
 # 期望输出：
 #   OK   Mutator / Victim / Judge / Critic: http://127.0.0.1:8000...
-#   OK   Detector[deberta-injection-v2] / [prompt-guard-86m] / [keyword-baseline]
+#   OK   Detector[deberta-injection-v2] / [keyword-baseline]
 ```
 有 FAIL 就回到第 ③ 步检查对应服务。
 

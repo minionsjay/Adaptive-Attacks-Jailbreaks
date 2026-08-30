@@ -22,6 +22,7 @@ DETECTORS = {
         "labels": ["BENIGN", "INJECTION", "JAILBREAK"],
         "threshold": 0.5,
         "default_url": "http://localhost:8810",
+        "requires": "HF_TOKEN（实测 meta-llama 全系均需接受许可后下载）",
         "methodology": (
             "DeBERTa-v3-base 规模的序列分类器，3 分类（良性/注入/越狱）。"
             "在大量合成越狱与注入样本上微调；对英文显式攻击指令敏感，"
@@ -35,6 +36,7 @@ DETECTORS = {
         "labels": ["SAFE", "UNSAFE"],
         "threshold": 0.5,
         "default_url": "http://localhost:8811",
+        "requires": "HF_TOKEN（需接受许可）",
         "methodology": (
             "Prompt Guard 2 代的 86M 版（ModernBERT 架构），二分类 SAFE/UNSAFE，"
             "合并注入与越狱为单一 UNSAFE 类；训练数据扩充了多语言与编码攻击，"
@@ -48,6 +50,7 @@ DETECTORS = {
         "labels": ["SAFE", "UNSAFE"],
         "threshold": 0.5,
         "default_url": "http://localhost:8812",
+        "requires": "HF_TOKEN（需接受许可）",
         "methodology": (
             "Prompt Guard 2 最小的 22M 版（蒸馏），延迟最低、能力也最弱；"
             "作为'小模型检测下限'的基线参照。"),

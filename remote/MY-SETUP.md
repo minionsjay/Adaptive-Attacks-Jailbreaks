@@ -78,8 +78,10 @@ bash remote/compare_detectors.sh
 **它自动做的事**：对名单里每个检测器 → 拉起服务（首次自动下载模型）→ 单独跑一轮
 进化攻击评估 → 关掉 → 换下一个 → 最后汇总成**排行榜**。
 
-默认对比 3 个无门控检测器：`keyword-baseline`（规则）、`deberta-injection-v2`（184M）、
-`prompt-guard-86m`（86M）。想加/换名单和规模：
+默认对比 3 个**免登录**检测器：`keyword-baseline`（规则）、`deberta-injection-v2`（184M）、
+`ppl-window`（困惑度，Qwen2.5-1.5B 底座）。
+⚠️ 实测 Meta 系检测器（prompt-guard-86m / 2-86m / 2-22m / 2-2b、llama-guard-3-1b）都
+需要 HF 账号接受许可 + `huggingface-cli login` 才能下载——想测它们先 login 再写进名单。
 
 ```bash
 # 加上 09 论文的 ppl-window（1.5B 底座）:
@@ -91,8 +93,9 @@ GENERATIONS=8 POPULATION=8 bash remote/compare_detectors.sh
 MODE=full bash remote/compare_detectors.sh
 ```
 
-**门控模型**（需要 HF 许可）：huggingface.co 上接受 Llama 协议 → 机器上
-`huggingface-cli login` → 名单里加 `llama-guard-3-1b`、`prompt-guard-2-2b` 即可。
+**门控模型**（需要 HF 许可，实测 Meta 全系都是）：huggingface.co 上接受对应许可 →
+机器上 `huggingface-cli login` → 名单里加 `prompt-guard-86m`、`prompt-guard-2-2b`、
+`llama-guard-3-1b` 等即可。
 
 ## 看结果
 
@@ -130,6 +133,41 @@ COMPARE_OUT=redteam_output_smollm bash remote/compare_detectors.sh
 ```
 victim 名单：`qwen2.5-1.5b`（稳健组）/ `smollm2-360m`、`tinyllama-1.1b`（沦陷组）/
 `r1-distill-qwen-1.5b`（推理蒸馏）等，见 `ams/victim_registry.py`。
+
+## 需要下载哪些小模型 + 一键下载
+
+**免登录（直接下）**：
+
+| 用途 | 模型 | 规模 | 磁盘 |
+|---|---|---|---|
+| 检测器 | protectai/deberta-v3-base-prompt-injection-v2 | 184M | ~0.7GB |
+| 检测器 | protectai/...-injection（v1，对比用） | 184M | ~0.7GB |
+| 检测器底座 | Qwen/Qwen2.5-1.5B（ppl-window 用） | 1.5B | ~3GB |
+| victim | Qwen/Qwen2.5-1.5B-Instruct（Group I 默认） | 1.5B | ~3GB |
+| victim | HuggingFaceTB/SmolLM2-360M-Instruct（Group II 对照） | 360M | ~0.8GB |
+| victim | deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | 1.5B | ~3.5GB |
+| 规则基线 | 无需下载 | — | — |
+
+**需 HF 许可（huggingface-cli login + 网页接受协议）**：Meta 全系检测器
+（Prompt-Guard-86M、Prompt-Guard-2 22M/86M/2B、Llama-Guard-3-1B）和
+Llama/Gemma/StableLM 系 victim——**实测 Meta 全系都要 login**。
+
+**一键下载到你指定的目录**（在 V100 上，git pull 后）：
+```bash
+# 全部免登录模型（检测器+推荐victim，≈11GB）:
+bash remote/download_small_models.sh /data/models
+
+# 只下检测器 / 只要victim / 全部victim / 单个指定:
+bash remote/download_small_models.sh /data/models detectors
+bash remote/download_small_models.sh /data/models victims
+bash remote/download_small_models.sh /data/models victims-all
+bash remote/download_small_models.sh /data/models deberta-injection-v2 victim:smollm2-360m
+
+# 加 --write-env 自动把路径写进 remote/models.env（推荐）
+bash remote/download_small_models.sh /data/models --write-env
+# 加 --with-gated 连门控模型一起下（先 huggingface-cli login）
+# 加 --dry-run 只看清单不下载
+```
 
 ## 自己下载小模型、自己指定路径（完全可以）
 

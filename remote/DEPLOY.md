@@ -90,8 +90,8 @@ NextN 头，免补丁）；官方 FastMTP sidecar 需 `FASTMTP_PATCH=1` 重建�
 | id | 规模 | 门控 | 端口 | 备注 |
 |---|---|---|---|---|
 | deberta-injection-v2 | 184M | 开放 | 8820 | ProtectAI，生产最常见 |
-| prompt-guard-86m | 86M | 开放 | 8810 | Meta v1，唯一 3 分类（含 JAILBREAK） |
-| prompt-guard-2-86m / 22m | 86M/22M | 开放 | 8811/8812 | Meta v2 二分类 |
+| prompt-guard-86m | 86M | **HF_TOKEN** | 8810 | Meta v1，唯一 3 分类（实测需接受许可） |
+| prompt-guard-2-86m / 22m | 86M/22M | **HF_TOKEN** | 8811/8812 | Meta v2 二分类（实测需接受许可） |
 | keyword-baseline | 规则 | 零下载 | 8830 | 冒烟/下限基线 |
 | ppl-window | 1.5B底座 | 开放 | 8840 | 09 论文防御复现，自校准阈值 |
 | **llama-guard-3-1b** | **1B** | **HF_TOKEN** | 8841 | HF 页面接受 Llama 许可 → `huggingface-cli login` |
