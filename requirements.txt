@@ -1,0 +1,15 @@
+# AMS-RedTeam 运行依赖（runner + 本地冒烟）
+requests>=2.31
+pyyaml>=6.0
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+
+# 检测器服务（detectors/serve_detector.py 的 classifier/generative 后端）
+# 远程 V100 机器安装 CUDA 版 torch 见 remote/setup_env.sh
+transformers>=4.44
+sentencepiece
+protobuf
+safetensors
+huggingface_hub
+torch            # CPU 版即可；远程机器可换 cu121 wheel

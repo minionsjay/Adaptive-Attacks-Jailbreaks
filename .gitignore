@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 实验产物（含攻击样本，绝不入库）
+redteam_output*/
+*.db
+*.jsonl
+!requirements.txt
+
+# 模型文件（体积巨大，不入库）
+*.gguf
+*.safetensors
+
+# 杂项
+nohup.out
+*.log
+.DS_Store
