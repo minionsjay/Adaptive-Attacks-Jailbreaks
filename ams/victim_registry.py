@@ -85,6 +85,44 @@ VICTIMS = {
         "paper_direct_asr": 0.271,
         "note": "推理蒸馏放大脆弱（Finding 6）：推理痕迹千篇一律、缺恶意识别"},
 
+    # ---------- 09 论文 Finding 6 对照组（含安全数据的蒸馏 vs 不含）----------
+    "star1-r1-distill-1.5b": {
+        "hf_id": "UCSC-VLAA/STAR1-R1-Distill-1.5B", "params": "1.5B", "group": "I",
+        "paper_avg_asr": 0.067,
+        "note": "含安全推理数据的 R1 蒸馏——论文 Finding 6 正面证据：同为蒸馏，加安全数据 ASR 从 0.55 降到 0.067"},
+    "realsafe-r1-1.5b": {
+        "hf_id": "RealSafe/RealSafe-R1-1.5B", "params": "1.5B", "group": "I",
+        "paper_avg_asr": 0.016,
+        "note": "全场最稳的 R1 系（论文数据 0.016）——安全蒸馏的天花板参照"},
+
+    # ---------- 09 论文 Group II 补充（论文实测几乎全线沦陷的家族）----------
+    "h2o-danube-1.8b": {
+        "hf_id": "h2oai/h2o-danube-1.8b-chat", "params": "1.8B", "group": "II",
+        "paper_avg_asr": 0.62,
+        "note": "论文 Direct ASR ~0.61-0.63 的沦陷组代表"},
+    "mobillama-2.7b": {
+        "hf_id": "mtgv/MobileLLaMA-2.7B-Chat", "params": "2.7B", "group": "II",
+        "paper_avg_asr": 0.62,
+        "note": "移动端家族；论文 Direct 0.5+；注意 Crescendo 下 ASR<10% 是能力不足假象"},
+    "stablelm-2-zephyr-1.6b": {
+        "hf_id": "stabilityai/stablelm-2-zephyr-1_6b", "params": "1.6B", "group": "II",
+        "paper_avg_asr": 0.55, "paper_direct_asr": 0.614,
+        "gated": "可能需接受 Stability 许可",
+        "note": "论文：Direct ASR 约为 12B 版 4 倍——'同族小模型更脆'的证据"},
+    "dolly-v2-3b": {
+        "hf_id": "databricks/dolly-v2-3b", "params": "3B", "group": "II",
+        "paper_avg_asr": 0.60,
+        "gated": "HF_TOKEN（实测需许可）",
+        "note": "论文重复率高达 0.8、词汇多样性极低——'低质量有害输出'的代表（Finding 3）"},
+    "fox-1-1.6b": {
+        "hf_id": "tensoropera/Fox-1-1.6B", "params": "1.6B", "group": "II",
+        "paper_avg_asr": 0.55,
+        "note": "边缘部署 SLM 家族"},
+    "phonelm-0.5b": {
+        "hf_id": "mllmTeam/PhoneLM-0.5B-Instruct", "params": "0.5B", "group": "II",
+        "paper_avg_asr": 0.52,
+        "note": "手机端专用 SLM（09 论文 15 家族之一）"},
+
     # ---------- LLM 基线（对照组）----------
     "qwen3-14b": {
         "hf_id": "Qwen/Qwen3-14B", "params": "14B", "group": "baseline",
