@@ -19,3 +19,7 @@ redteam_output*/
 nohup.out
 *.log
 .DS_Store
+
+# 机器本地配置（每台机器自己的，不入库；模板见 *.example）
+config.yaml
+remote/models.env
