@@ -39,7 +39,11 @@ def main():
     p.add_argument("--population", type=int)
     p.add_argument("--feedback-level", choices=["none", "flag", "score"],
                    help="检测器反馈等级消融（默认 config 值）")
+    p.add_argument("--dry-run", action="store_true",
+                   help="只做服务连通性检查（等价 --mode dry-run）")
     args = p.parse_args()
+    if args.dry_run:
+        args.mode = "dry-run"
 
     h = RedTeamHarness(args.config)
     if args.generations:
