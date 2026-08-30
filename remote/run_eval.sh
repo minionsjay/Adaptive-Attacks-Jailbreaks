@@ -17,6 +17,11 @@ if [ -f "${AMS_HOME:-$HOME/ams}/venv/bin/activate" ]; then
   source "${AMS_HOME:-$HOME/ams}/venv/bin/activate"
 fi
 
+# 首次运行引导：没有本地配置就从模板生成
+if [ ! -f "$HERE/config.yaml" ] && [ -f "$HERE/config.yaml.example" ]; then
+  cp "$HERE/config.yaml.example" "$HERE/config.yaml"
+  echo "[bootstrap] 已从 config.yaml.example 生成本地 config.yaml（可自由修改）"
+fi
 CONFIG="${AMS_CONFIG:-$HERE/config.yaml}"
 echo "[run_eval] 项目目录: $HERE"
 echo "[run_eval] 配置: $CONFIG（单机模式，全部服务 localhost）"

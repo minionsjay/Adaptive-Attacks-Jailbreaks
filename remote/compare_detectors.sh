@@ -29,6 +29,11 @@ LIST="${DETECTORS_TO_COMPARE:-keyword-baseline deberta-injection-v2 ppl-window}"
 MODE="${MODE:-jailbreak}"
 GEN="${GENERATIONS:-5}"
 POP="${POPULATION:-6}"
+# 首次运行引导：没有本地配置就从模板生成
+if [ ! -f "$HERE/config.yaml" ] && [ -f "$HERE/config.yaml.example" ]; then
+  cp "$HERE/config.yaml.example" "$HERE/config.yaml"
+  echo "[bootstrap] 已从 config.yaml.example 生成本地 config.yaml（可自由修改）"
+fi
 OUT="${COMPARE_OUT:-redteam_output_compare}"
 CFG=/tmp/ams_compare_cfg.yaml
 mkdir -p "$OUT"

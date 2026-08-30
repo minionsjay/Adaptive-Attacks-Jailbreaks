@@ -10,6 +10,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$HERE"
 
+# 首次运行引导：没有本地配置就从模板生成
+if [ ! -f "$HERE/config.yaml" ] && [ -f "$HERE/config.yaml.example" ]; then
+  cp "$HERE/config.yaml.example" "$HERE/config.yaml"
+  echo "[bootstrap] 已从 config.yaml.example 生成本地 config.yaml（可自由修改）"
+fi
 MOCK_PORT=9077
 SMOKE_CFG=/tmp/ams_smoke_config.yaml
 
