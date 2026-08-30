@@ -119,6 +119,9 @@ MODE=full bash remote/compare_detectors.sh
 
 ## 看结果
 
+> 📄 **所有生成文件与每个字段的完整说明** → [`FILES.md`](FILES.md)
+> 🚀 不想自己翻文件：`bash show_results.sh`（排行榜+发现+样本一键速览）
+
 ```bash
 cat redteam_output_compare/comparison.md     # ★ 最终排行榜
 ```
