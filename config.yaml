@@ -16,12 +16,19 @@ attacker:
   max_tokens: 3000
   timeout: 600              # 27B CPU/GPU 长输出时放宽
   rps_limit: 10
+  # ★ Qwen3 系思考模型必须关思考，否则 <think> 占满 token、JSON 解析全失败
+  chat_kwargs:
+    chat_template_kwargs:
+      enable_thinking: false
 
 # ---------- Critic（搜索引导，1-10 打分；可与 attacker 同机）----------
 critic:
   base_url: "http://127.0.0.1:8000/v1"
   model: "Qwen3.8-27B-Uncensored-Aggressive"
   api_key: "EMPTY"
+  chat_kwargs:
+    chat_template_kwargs:
+      enable_thinking: false
 
 # ---------- Judge（越狱六档判定）----------
 # 单机默认: 复用本机 27B 服务（llama-server --parallel 4 并发即可）。
@@ -36,6 +43,9 @@ judge:
   api_key: "EMPTY"
   temperature: 0.1
   max_tokens: 400
+  chat_kwargs:
+    chat_template_kwargs:
+      enable_thinking: false
 
 # ---------- Victim（被攻击对象）----------
 # 路径 A: 对齐小模型 GGUF (llama.cpp, remote/serve_victim.sh)

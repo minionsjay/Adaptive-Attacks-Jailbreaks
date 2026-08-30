@@ -99,9 +99,11 @@ def mutator_reply(user_msg: str) -> str:
         triggers.append({"text": text, "attack_type": t["attack_type"],
                          "language": t["language"],
                          "harm_category": t.get("harm_category", "injection")})
-    return json.dumps({
+    # 模拟 Qwen3 思考模型：先输出 <think> 再给 JSON（验证 extract_json 的剥离逻辑）
+    payload = json.dumps({
         "improvement": f"gen{g}: 更多语言/编码变体，降低词法特征",
         "triggers": triggers}, ensure_ascii=False)
+    return f"<think>分析上一代结果：检测器拦截了显式请求……本轮加大编码与语言变体。</think>\n{payload}"
 
 
 def victim_reply(user_msg: str) -> str:

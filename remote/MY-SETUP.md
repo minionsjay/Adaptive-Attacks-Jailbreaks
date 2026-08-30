@@ -207,6 +207,8 @@ cd detectors && python serve_detector.py --id deberta-injection-v2 --model /data
 
 | 症状 | 解决 |
 |---|---|
+| **Gen 全部"解析失败 SKIP"** | Qwen3 思考模型的 `<think>` 占满输出。已修复（config 自动关思考+解析器加固），`git pull` 后重跑；若还失败看 `redteam_output*/mutator_debug_gen*.txt` 里的原文 |
+| **检测器下载 ProxyError/503** | 机器访问不了 huggingface.co。三选一：① models.env 里设 `HF_ENDPOINT="https://hf-mirror.com"` ② 给它配本地路径（ppl-window 可直接复用你已下载的 victim 模型：`DETECTOR_MODEL_OVERRIDES="..., ppl-window=/路径/Qwen2.5-1.5B-Instruct"`）③ 名单里去掉它 |
 | dry-run Mutator FAIL | config.yaml 的 base_url/model 没改成你 llama-server 的（第 2 步） |
 | llama-server 忙不过来/超时 | 正常，27B 吞吐有限；把 config.yaml 里 attacker 的 `timeout` 调大到 1200 |
 | compare_detectors 中途卡在下载 | 首次要下检测器模型（184M~1.5B），等它；之后都走缓存 |

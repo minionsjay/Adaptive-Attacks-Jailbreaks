@@ -87,26 +87,36 @@ class CostTracker:
 
 
 def extract_json(text):
-    """健壮地从 LLM 输出中抽取 JSON（支持 ```json 围栏、前后杂讯）。
-    返回 (obj, err)；err 非空表示解析失败。"""
+    """健壮地从 LLM 输出中抽取 JSON。
+    处理：思考块 <think>…</think>（含被截断未闭合的）、```json 围栏、
+    顶层为列表、尾逗号。返回 (obj, err)；err 非空表示解析失败。"""
     if not text:
         return None, "empty"
     t = text.strip()
+    # ① 剥掉思考块（Qwen3 系思考模型）；未闭合的（max_tokens 截断）直接丢弃其后内容
+    t = re.sub(r"<think>.*?</think>", "", t, flags=re.S)
+    t = re.sub(r"<think>.*", "", t, flags=re.S)
+    # ② 代码围栏
     if "```json" in t:
-        t = t.split("```json", 1)[1]
-        t = t.split("```", 1)[0]
+        t = t.split("```json", 1)[1].split("```", 1)[0]
     elif "```" in t:
-        t = t.split("```", 1)[1]
-        t = t.split("```", 1)[0]
-    # 逐步放宽：整体解析 → 首个 {...} → 首个 [...]
-    for candidate in (t, re.search(r"\{.*\}", t, re.S), re.search(r"\[.*\]", t, re.S)):
-        if not candidate:
+        parts = t.split("```")
+        if len(parts) >= 3:
+            t = parts[1]
+    # ③ 候选片段：整体 → 首个{ 到 末个} → 首个[ 到 末个]
+    cands = [t]
+    if "{" in t and "}" in t:
+        cands.append(t[t.find("{"): t.rfind("}") + 1])
+    if "[" in t and "]" in t:
+        cands.append(t[t.find("["): t.rfind("]") + 1])
+    for s in cands:
+        if not s or not s.strip():
             continue
-        s = candidate.group(0) if hasattr(candidate, "group") else candidate
-        try:
-            return json.loads(s.strip()), None
-        except Exception:
-            continue
+        for probe in (s, re.sub(r",\s*([}\]])", r"\1", s)):  # 去尾逗号再试
+            try:
+                return json.loads(probe.strip()), None
+            except Exception:
+                continue
     return None, "no valid json"
 
 
@@ -116,7 +126,7 @@ class RobustLLM:
 
     def __init__(self, role, base_url, model, api_key="EMPTY", temperature=0.7,
                  max_tokens=1024, max_retries=3, timeout=300, tracker=None,
-                 rps_limit=10.0):
+                 rps_limit=10.0, chat_kwargs=None):
         self.role = role
         self.url = base_url.rstrip("/")
         self.model = model
@@ -128,6 +138,8 @@ class RobustLLM:
         self.tracker = tracker or CostTracker()
         self._interval = 1.0 / max(rps_limit, 0.01)
         self._last = 0.0
+        # 额外请求体参数（如 Qwen3 思考模型: {chat_template_kwargs: {enable_thinking: false}}）
+        self.chat_kwargs = dict(chat_kwargs or {})
 
     def chat(self, messages, temperature=None, max_tokens=None, **extra):
         temp = self.temperature if temperature is None else temperature
@@ -141,7 +153,8 @@ class RobustLLM:
                 r = _session_for(self.url).post(
                     f"{self.url}/chat/completions",
                     json={"model": self.model, "messages": messages,
-                          "temperature": temp, "max_tokens": mt, **extra},
+                          "temperature": temp, "max_tokens": mt,
+                          **self.chat_kwargs, **extra},
                     headers={"Content-Type": "application/json",
                              "Authorization": f"Bearer {self.key}"},
                     timeout=self.timeout)

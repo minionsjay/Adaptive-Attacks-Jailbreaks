@@ -45,6 +45,15 @@ def _load_models_env():
     return out
 
 
+def _apply_hf_env():
+    """把 models.env 里的 HF_ENDPOINT/HF_HOME/HF_TOKEN 应用到当前进程
+    （HF_ENDPOINT=https://hf-mirror.com 可解决 huggingface.co 被墙/代理 503）"""
+    env = _load_models_env()
+    for k in ("HF_ENDPOINT", "HF_HOME", "HF_TOKEN", "HF_HUB_OFFLINE"):
+        if env.get(k):
+            os.environ.setdefault(k, env[k])
+
+
 def resolve_model_source(det_id, override_arg=None):
     """模型来源优先级:
     --model 参数 > models.env 的 DETECTOR_MODEL_OVERRIDES(id=路径,逗号分隔) > 注册表 model_id
@@ -331,6 +340,7 @@ def build_backend(det_id: str, device: Optional[str] = None,
 def create_app(det_id: str, device: Optional[str] = None,
                model_source: Optional[str] = None):
     cfg = get_detector_cfg(det_id)
+    _apply_hf_env()
     src = model_source or resolve_model_source(det_id)
     if src and src != cfg.get("model_id"):
         print(f"[serve_detector] 模型来源覆盖: {det_id} -> {src}")

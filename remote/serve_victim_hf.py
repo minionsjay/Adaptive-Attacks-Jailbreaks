@@ -100,6 +100,9 @@ def main():
 
     # 优先级: --hf 参数 > --id 注册表 > models.env 的 VICTIM_HF_MODEL > 默认
     env = _load_models_env()
+    for k in ("HF_ENDPOINT", "HF_HOME", "HF_TOKEN", "HF_HUB_OFFLINE"):
+        if env.get(k):
+            os.environ.setdefault(k, env[k])
     hf_id = args.hf
     if not hf_id and args.id:
         from ams.victim_registry import VICTIMS

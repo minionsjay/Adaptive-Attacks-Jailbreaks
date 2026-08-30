@@ -56,6 +56,11 @@ PY
     if curl -s --max-time 3 "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -q '"ok":true'; then
       READY=1; break
     fi
+    # 进程已死（如下载失败崩溃）→ 立刻跳出，不傻等 15 分钟
+    if ! kill -0 $DETPID 2>/dev/null; then
+      echo "  ✗ 检测器进程退出（常见: 模型下载失败——配 models.env 的 HF_ENDPOINT 镜像或本地路径）"
+      break
+    fi
     sleep 5
   done
   if [ "$READY" != "1" ]; then
