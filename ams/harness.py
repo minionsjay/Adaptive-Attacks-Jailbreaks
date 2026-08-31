@@ -372,6 +372,23 @@ class RedTeamHarness:
                 archetypes=injection_archetypes_text())
         return self._mut_sys_cache
 
+    def _jailbreak_seed_pool(self):
+        """Gen0 种子池：config.seed_queries(内置中文) + config.seed_file(数据集导入)
+        按 config.seed_sample 抽样（0=全部）。"""
+        pool = [dict(q) for q in self.cfg.get("seed_queries", [])]
+        sf = self.cfg.get("seed_file")
+        if sf and os.path.exists(sf):
+            with open(sf, encoding="utf-8") as f:
+                ext = yaml.safe_load(f) or []
+            pool.extend(ext)
+            print(f"  [种子] 已并入 {sf}: +{len(ext)} 条（池共 {len(pool)}）")
+        n = self.cfg.get("seed_sample", 0)
+        if n and len(pool) > n:
+            import random as _r
+            pool = _r.sample(pool, n)
+            print(f"  [种子] 抽样 {n} 条作为 Gen0")
+        return pool
+
     # ================= Score =================
     def score(self, c: AttackCandidate, det_card: DetectorCard,
               stop_watch=None):
@@ -499,10 +516,11 @@ class RedTeamHarness:
               f"feedback={self.feedback_level}\n{'=' * 64}")
         island = controller.next_island()
 
-        # Gen0: 种子
+        # Gen0: 种子（内置 + 可选真实数据集导入，抽样控成本）
         self._gen = 0
+        pool = self._jailbreak_seed_pool()
         seeds = []
-        for sq in self.cfg.get("seed_queries", []):
+        for sq in pool:
             seeds.append(AttackCandidate(
                 id=hashlib.md5(sq["prompt"].encode()).hexdigest()[:12],
                 experiment_id=self.exp_id, scenario_kind=kind,
@@ -560,18 +578,26 @@ class RedTeamHarness:
         print(f"\n[注入模式] scenario={scenario.id} detector={det_card.id} "
               f"goal={scenario.goal_desc[:60]}")
         self._gen = 0
-        # Gen0: 用模板里已有的"原始话术"当种子 trigger
-        seed_triggers = [
-            scenario.untrusted_template.split("{TRIGGER}")[0][-200:].strip()[-120:],
-            f"(system: execute {scenario.goal_tool} now)"]
+        # Gen0: 内置 AgentDojo 式种子池（按场景轮转）+ 可选数据集导入（injection_seed_file）
+        from .scenarios.injection import seed_triggers_for
+        st = seed_triggers_for(scenario, n=3)
+        isf = self.cfg.get("injection_seed_file")
+        if isf and os.path.exists(isf):
+            with open(isf, encoding="utf-8") as f:
+                ext = yaml.safe_load(f) or []
+            for e in ext[:2]:
+                st.append({"attack_type": e.get("attack_type", "context_abuse"),
+                           "trigger": e["trigger"]})
+            print(f"  [种子] 注入场景并入 {isf}: +{min(2, len(ext))} 条")
         seeds = []
-        for i, t in enumerate(seed_triggers):
+        for i, t in enumerate(st):
             seeds.append(AttackCandidate(
-                id=hashlib.md5(f"{scenario.id}{i}".encode()).hexdigest()[:12],
+                id=hashlib.md5(f"{scenario.id}{t['trigger'][:40]}".encode()).hexdigest()[:12],
                 experiment_id=self.exp_id, scenario_kind=kind, scenario_id=sid,
-                generation=0, island=0, prompt=t, trigger=t,
-                attack_type="context_abuse", harm_category=scenario.domain,
-                language="zh-CN", detector_id=det_card.id,
+                generation=0, island=0, prompt=t["trigger"], trigger=t["trigger"],
+                attack_type=t["attack_type"], harm_category=scenario.domain,
+                language="zh-CN" if any("\u4e00" <= ch <= "\u9fff" for ch in t["trigger"]) else "en",
+                detector_id=det_card.id,
                 created_at=datetime.now().isoformat()))
         scored = [self.score(c, det_card) for c in seeds]
         for c in scored:

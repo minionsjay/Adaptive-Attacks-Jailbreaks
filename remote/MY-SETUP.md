@@ -226,6 +226,28 @@ cd detectors && python serve_detector.py --id deberta-injection-v2 --model /data
 ```
 本地目录里需含 `config.json` / tokenizer / 权重文件（`--local-dir` 下载下来就是完整的）。
 
+## 用真实数据集当初始攻击种子（Gen0）
+
+内置种子只是 6 条中文直球；论文用的是 HarmBench/AgentDojo 这类真实基准。一键导入：
+
+```bash
+cd ~/ams-redteam
+python scripts/import_seeds.py --source all --n 30
+#   → data/seeds_jbb.yaml        JailbreakBench 100条精选（部分源自HarmBench）
+#   → data/seeds_injection.yaml  deepset 1052条真实注入标注样本
+```
+
+config.yaml 里启用（可与内置中文种子叠加，形成中英混合池）：
+```yaml
+seed_file: data/seeds_jbb.yaml          # 越狱种子
+seed_sample: 8                          # Gen0 抽 8 条（控成本；0=全部）
+injection_seed_file: data/seeds_injection.yaml   # 注入种子（可选）
+```
+
+说明：Gen0 只是"静态基线"（对照论文的静态 ASR）；真正的攻击由进化生成。
+但真实种子让基线更有代表性、起点多样性更好。注：两个数据集是英文的，
+中文攻击主力仍是内置种子 + mutator 的多语言变异。
+
 ## 常见问题（这个场景专属）
 
 | 症状 | 解决 |

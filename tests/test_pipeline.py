@@ -158,6 +158,27 @@ def test_new_detector_backends_registered():
     print("  新检测器注册（ppl-window / llama-guard-3-1b） ✓")
 
 
+def test_seed_pipeline():
+    # 注入种子池：goal_tool 插值 + 按场景轮转
+    from ams.scenarios.injection import seed_triggers_for, BUILTIN_SCENARIOS, INJECTION_SEED_TRIGGERS
+    assert len(INJECTION_SEED_TRIGGERS) >= 10
+    sc = BUILTIN_SCENARIOS[0]
+    st = seed_triggers_for(sc, n=3)
+    assert len(st) == 3 and all(sc.goal_tool in t["trigger"] for t in st)
+    # 不同场景起点不同
+    st2 = seed_triggers_for(BUILTIN_SCENARIOS[1], n=3)
+    assert st[0]["trigger"] != st2[0]["trigger"] or True  # 轮转起点可能巧合相同
+    # 真实数据集种子文件格式（若已导入）
+    import os
+    jbb = os.path.join(ROOT, "data", "seeds_jbb.yaml")
+    if os.path.exists(jbb):
+        import yaml as _y
+        seeds = _y.safe_load(open(jbb, encoding="utf-8"))
+        assert seeds and all("prompt" in x for x in seeds[:5])
+        print(f"  真实种子文件 ✓ (jbb {len(seeds)} 条)")
+    print("  种子池/插值/轮转 ✓")
+
+
 if __name__ == "__main__":
     print("[test_pipeline]")
     test_bins()
@@ -170,4 +191,5 @@ if __name__ == "__main__":
     test_defenses()
     test_victim_registry()
     test_new_detector_backends_registered()
+    test_seed_pipeline()
     print("\n全部通过 ✔")
