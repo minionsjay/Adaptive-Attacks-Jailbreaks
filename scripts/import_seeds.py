@@ -206,7 +206,25 @@ def main():
     ap.add_argument("--n", type=int, default=30, help="每个来源抽样条数")
     ap.add_argument("--out-dir", default=os.path.join(ROOT, "data"))
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--count", action="store_true", help="只盘点当前种子库存，不下载")
     args = ap.parse_args()
+
+    if args.count:
+        import yaml as _y
+        total = len(_y.safe_load(open(os.path.join(ROOT, "config.yaml.example"),
+                                      encoding="utf-8")).get("seed_queries", []))
+        print("═ 越狱种子池 ═")
+        print(f"  内置(中文):  {total:>4} 条")
+        for f in sorted(os.listdir(os.path.join(ROOT, "data"))):
+            if f.startswith("seeds_") and "injection" not in f and f.endswith(".yaml"):
+                n = len(_y.safe_load(open(os.path.join(ROOT, "data", f), encoding="utf-8")))
+                print(f"  {f:<28s}{n:>4} 条"); total += n
+        print(f"  {'合计':<28s}{total:>4} 条  （论文 HarmBench = 200 条）")
+        inj_f = os.path.join(ROOT, "data", "seeds_injection.yaml")
+        n = len(_y.safe_load(open(inj_f, encoding="utf-8"))) if os.path.exists(inj_f) else 0
+        print("═ 注入种子池 ═")
+        print(f"  deepset 导入: {n} 条 + 内置 12 种模板×6场景（论文 AgentDojo = 80 场景）")
+        return
     rng = random.Random(args.seed)
     os.makedirs(args.out_dir, exist_ok=True)
 
