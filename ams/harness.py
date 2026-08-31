@@ -376,12 +376,14 @@ class RedTeamHarness:
         """Gen0 种子池：config.seed_queries(内置中文) + config.seed_file(数据集导入)
         按 config.seed_sample 抽样（0=全部）。"""
         pool = [dict(q) for q in self.cfg.get("seed_queries", [])]
-        sf = self.cfg.get("seed_file")
-        if sf and os.path.exists(sf):
-            with open(sf, encoding="utf-8") as f:
-                ext = yaml.safe_load(f) or []
-            pool.extend(ext)
-            print(f"  [种子] 已并入 {sf}: +{len(ext)} 条（池共 {len(pool)}）")
+        sfs = self.cfg.get("seed_file")
+        sfs = sfs if isinstance(sfs, list) else ([sfs] if sfs else [])
+        for sf in sfs:
+            if sf and os.path.exists(sf):
+                with open(sf, encoding="utf-8") as f:
+                    ext = yaml.safe_load(f) or []
+                pool.extend(ext)
+                print(f"  [种子] 已并入 {sf}: +{len(ext)} 条（池共 {len(pool)}）")
         n = self.cfg.get("seed_sample", 0)
         if n and len(pool) > n:
             import random as _r

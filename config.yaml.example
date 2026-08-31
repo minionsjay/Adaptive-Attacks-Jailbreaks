@@ -101,10 +101,15 @@ harm_categories: [fraud, gambling, porn, scam, violence, political]
 
 # ---------- 越狱种子（Gen0 静态基线）----------
 # 三个来源可叠加：内置 seed_queries + seed_file(真实数据集导入)
-# 导入真实基准: python scripts/import_seeds.py --source all --n 30
-#   → data/seeds_jbb.yaml (JailbreakBench 100条精选, 部分源自HarmBench)
-#   → data/seeds_injection.yaml (deepset 1052条真实注入标注)
-seed_file: ""                 # 例: data/seeds_jbb.yaml；空=只用内置
+# 导入真实基准: python scripts/import_seeds.py --source all --n 20
+#   data/seeds_jbb.yaml           JailbreakBench 100条精选(部分源自HarmBench,英文)
+#   data/seeds_jailbreakhub.yaml  JailbreakHub 15k真实人类越狱模板(DAN式,英文)
+#   data/seeds_cvalues.yaml       阿里CValues 中文价值观风险问题(中文)
+#   data/seeds_chinesesafe.yaml   中文违规样本2万条10类含"变体词"(中文)
+#   data/seeds_injection.yaml     deepset 1052条真实注入标注
+# 中文两件套: --source zh
+# 可多个文件叠加: seed_file: [data/seeds_jbb.yaml, data/seeds_chinesesafe.yaml]
+seed_file: ""                 # 例: data/seeds_jbb.yaml 或列表；空=只用内置
 seed_sample: 0                # Gen0 从种子池抽多少条（0=全部；导入大数据集时建议 8-12 控成本）
 injection_seed_file: ""       # 例: data/seeds_injection.yaml（叠加到内置注入种子池）
 seed_queries:
