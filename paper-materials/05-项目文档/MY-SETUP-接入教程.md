@@ -1,0 +1,261 @@
+# 我的接入教程：llama.cpp 已跑好 + 只想对比小检测器
+
+> 适用你的情况：
+> ① 两台电脑网络不通 → 用 git 传项目（见 [`GIT.md`](GIT.md)）
+> ② V100 机器环境已配好，**llama.cpp 已经跑着 Qwen3.8-27B**
+> ③ 目标：**测试不同小模型（2B / <1B）的检测能力**，看谁强谁弱
+>
+> 全程只在 V100 机器操作，共 4 步，最后一条命令出排行榜。
+
+---
+
+## 先搞清楚：项目里的小模型分两类，角色相反
+
+```
+攻击者(Qwen3.8-27B) ─攻击→ 【保安】检测器(小模型①) ─放行→ 【靶子】victim(小模型②)
+                              拦截=防御成功              被骗出有害内容=攻击成功
+```
+
+| 角色 | 是哪些模型 | 身份 | 怎么配置 |
+|---|---|---|---|
+| **检测器** | deberta / prompt-guard / ppl-window / keyword | **保安——实验主角，你测的就是它** | 名单制：`DETECTORS_TO_COMPARE="a b c" bash remote/compare_detectors.sh`；模型路径在 models.env 的 `DETECTOR_MODEL_OVERRIDES` 配 |
+| **victim** | qwen2.5 / smollm 等（见 ams/victim_registry.py） | 靶子——攻击穿过保安后要打的目标，被越狱才算保安失职 | 单配制：`python remote/serve_victim_hf.py --id qwen2.5-1.5b --port 8001`，换靶子=换 --id 重启 |
+| 攻击者/裁判 | Qwen3.8-27B | 考核工具，不用动 | config.yaml 三处 base_url/model |
+
+为什么必须有 victim：绕过检测器≠攻击成功（乱码也能骗过检测器）；必须真的让一个正常
+模型输出有害内容才算数。所以 victim 随便选个正常的（默认 qwen2.5-1.5b）即可，不用纠结。
+
+测你自己的检测模型：`cd detectors && python serve_detector.py --id deberta-injection-v2 --model /你的模型目录 --port 8820`（任何 HF 格式分类模型都能挂）。
+
+---
+
+## 第 1 步：确认你已有的 llama-server 地址和模型名（1 分钟）
+
+```bash
+# 常见端口：8080(llama-server默认) / 8000。两条都试一下：
+curl -s http://127.0.0.1:8080/v1/models
+curl -s http://127.0.0.1:8000/v1/models
+```
+记下两样东西：**端口** 和返回里的 **"id"**（模型名）。例：
+```json
+{"data":[{"id":"Qwen3.8-27B-Uncensored-...-Q5_K_P.gguf","object":"model"}]}
+```
+
+> 💡 **llama-server 本身的启动参数不知道怎么设？**（量化怎么选、上下文多少、
+> FastMTP 那个 903MB 文件要不要用）→ 看 **[`LLAMA-SERVER.md`](LLAMA-SERVER.md)**，
+> 有逐参数说明和直接抄的命令。
+
+## 第 2 步：改配置指向它（1 分钟）
+
+```bash
+cd ~/ams-redteam
+vi config.yaml          # 只改 3 处的 base_url 和 model（attacker / critic / judge）
+```
+```yaml
+attacker:
+  base_url: "http://127.0.0.1:8080/v1"     # ← 改成你的端口
+  model: "Qwen3.8-27B-...-Q5_K_P.gguf"     # ← 改成 /v1/models 返回的 id
+critic:
+  base_url: "http://127.0.0.1:8080/v1"     # ← 同上
+  model: "Qwen3.8-27B-...-Q5_K_P.gguf"
+judge:
+  base_url: "http://127.0.0.1:8080/v1"     # ← 同上
+  model: "Qwen3.8-27B-...-Q5_K_P.gguf"
+```
+> 三个角色共用你这一个服务即可，不用起三个。
+
+**顺手配模型路径**（victim/检测器以后要下载小模型，别挤系统盘）：
+```bash
+vi remote/models.env     # 取消注释改:
+# HF_HOME="/data/hf_cache"
+# MODEL_DIR="/data/models"
+```
+
+## 第 3 步：起 victim + 先测一个检测器（5 分钟）
+
+**victim**（被攻击的对齐小模型，必须要有；另开一个 tmux 窗口）：
+```bash
+cd ~/ams-redteam
+python remote/serve_victim_hf.py --id qwen2.5-1.5b --port 8001
+# 成功标志: [victim-hf] ready :8001（首次自动下载 ~3GB 到 HF_HOME）
+```
+
+**连通性体检**（victim 起来后）：
+```bash
+cd ~/ams-redteam/remote
+bash run_eval.sh --dry-run
+# Mutator/Victim/Judge/Critic 和 Detector 们全 OK 就过关
+# （Detector FAIL 正常——还没起，下一步脚本会自动拉起）
+```
+
+## 第 4 步：一条命令跑检测器对比（★ 核心）
+
+```bash
+cd ~/ams-redteam
+bash remote/compare_detectors.sh
+```
+
+**它自动做的事**：对名单里每个检测器 → 拉起服务（首次自动下载模型）→ 单独跑一轮
+进化攻击评估 → 关掉 → 换下一个 → 最后汇总成**排行榜**。
+
+默认对比 3 个**免登录**检测器：`keyword-baseline`（规则）、`deberta-injection-v2`（184M）、
+`ppl-window`（困惑度，Qwen2.5-1.5B 底座）。
+⚠️ 实测 Meta 系检测器（prompt-guard-86m / 2-86m / 2-22m / 2-2b、llama-guard-3-1b）都
+需要 HF 账号接受许可 + `huggingface-cli login` 才能下载——想测它们先 login 再写进名单。
+
+```bash
+# 加上 09 论文的 ppl-window（1.5B 底座）:
+DETECTORS_TO_COMPARE="keyword-baseline deberta-injection-v2 prompt-guard-86m ppl-window" \
+  bash remote/compare_detectors.sh
+
+# 更大规模（更准但更久）;  full 模式连 6 个注入场景一起测:
+GENERATIONS=8 POPULATION=8 bash remote/compare_detectors.sh
+MODE=full bash remote/compare_detectors.sh
+```
+
+**门控模型**（需要 HF 许可，实测 Meta 全系都是）：huggingface.co 上接受对应许可 →
+机器上 `huggingface-cli login` → 名单里加 `prompt-guard-86m`、`prompt-guard-2-2b`、
+`llama-guard-3-1b` 等即可。
+
+## 看结果
+
+> 📄 **所有生成文件与每个字段的完整说明** → [`FILES.md`](FILES.md)
+> 🚀 不想自己翻文件：`bash show_results.sh`（排行榜+发现+样本一键速览）
+
+```bash
+cat redteam_output_compare/comparison.md     # ★ 最终排行榜
+```
+
+长这样（绕过率升序 = 从强到弱）：
+
+| 排名 | 检测器 | 规模 | 绕过率↓ | 漏报率↓ | 误报率↓ | F1↑ | 首破queries | 最弱语言 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | deberta-injection-v2 | 184M | 18.1% | 41.8% | 30.0% | 0.52 | 15 | pinyin-abbr |
+| 2 | keyword-baseline | 规则 | 25.0% | 55.6% | 95.0% | 0.24 | 10 | zh-number |
+| ... |
+
+**怎么读**：绕过率/漏报率越低 = 检测能力越强；误报率 = 误伤正常流量的程度（要和漏报
+一起看，只有两者都低才是真强）；首破 queries = 攻击者几个查询就找到绕过（越小越脆）；
+最弱语言 = 该检测器该补训练数据的方向。每个检测器的完整细节看同目录下
+`report_exp_*.md`（里面有分语言/分策略盲区、Top 绕过样本、自动改进建议）。
+
+单个检测器深挖：
+```bash
+ls redteam_output_compare/report_*.md
+cat redteam_output_compare/report_exp_xxxx.md
+```
+
+## 换不同 victim 再对比一轮（可选：09 论文玩法）
+
+同一批攻击打不同 victim，能看"哪类小模型更容易被打穿"：
+```bash
+python remote/serve_victim_hf.py --id smollm2-360m --port 8001   # 换沦陷组 victim
+bash remote/compare_detectors.sh                                  # 结果在另一个目录会混
+# 建议换输出目录跑:
+COMPARE_OUT=redteam_output_smollm bash remote/compare_detectors.sh
+```
+victim 名单：`qwen2.5-1.5b`（稳健组）/ `smollm2-360m`、`tinyllama-1.1b`（沦陷组）/
+`r1-distill-qwen-1.5b`（推理蒸馏）等，见 `ams/victim_registry.py`。
+
+> 📋 **两篇论文用过的小模型完整盘点**（59 个 SLM victim 阵容、全部防御、
+> judge/mutator 模型，含论文 ASR 数字和推荐实验组合）→ 看 **[`MODELS.md`](MODELS.md)**
+
+## 需要下载哪些小模型 + 一键下载
+
+**免登录（直接下）**：
+
+| 用途 | 模型 | 规模 | 磁盘 |
+|---|---|---|---|
+| 检测器 | protectai/deberta-v3-base-prompt-injection-v2 | 184M | ~0.7GB |
+| 检测器 | protectai/...-injection（v1，对比用） | 184M | ~0.7GB |
+| 检测器底座 | Qwen/Qwen2.5-1.5B（ppl-window 用） | 1.5B | ~3GB |
+| victim | Qwen/Qwen2.5-1.5B-Instruct（Group I 默认） | 1.5B | ~3GB |
+| victim | HuggingFaceTB/SmolLM2-360M-Instruct（Group II 对照） | 360M | ~0.8GB |
+| victim | deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B | 1.5B | ~3.5GB |
+| 规则基线 | 无需下载 | — | — |
+
+**需 HF 许可（huggingface-cli login + 网页接受协议）**：Meta 全系检测器
+（Prompt-Guard-86M、Prompt-Guard-2 22M/86M/2B、Llama-Guard-3-1B）和
+Llama/Gemma/StableLM 系 victim——**实测 Meta 全系都要 login**。
+
+**一键下载到你指定的目录**（在 V100 上，git pull 后）：
+```bash
+# 全部免登录模型（检测器+推荐victim，≈11GB）:
+bash remote/download_small_models.sh /data/models
+
+# 只下检测器 / 只要victim / 全部victim / 单个指定:
+bash remote/download_small_models.sh /data/models detectors
+bash remote/download_small_models.sh /data/models victims
+bash remote/download_small_models.sh /data/models victims-all
+bash remote/download_small_models.sh /data/models deberta-injection-v2 victim:smollm2-360m
+
+# 加 --write-env 自动把路径写进 remote/models.env（推荐）
+bash remote/download_small_models.sh /data/models --write-env
+# 加 --with-gated 连门控模型一起下（先 huggingface-cli login）
+# 加 --dry-run 只看清单不下载
+```
+
+## 自己下载小模型、自己指定路径（完全可以）
+
+检测器 / victim 都支持"你下载到哪、配置指向哪"，全自动下载只是备选。
+
+**1) 自己下载（想放哪放哪；门控模型先 `huggingface-cli login`）**：
+```bash
+# 检测器
+huggingface-cli download protectai/deberta-v3-base-prompt-injection-v2 --local-dir /data/models/deberta-inj-v2
+huggingface-cli download meta-llama/Prompt-Guard-86M --local-dir /data/models/prompt-guard-86m
+# victim
+huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir /data/models/Qwen2.5-1.5B-Instruct
+```
+
+**2) 在 `remote/models.env` 里指路径**（一处配置，所有脚本生效）：
+```bash
+DETECTOR_MODEL_OVERRIDES="deberta-injection-v2=/data/models/deberta-inj-v2, prompt-guard-86m=/data/models/prompt-guard-86m"
+VICTIM_HF_MODEL="/data/models/Qwen2.5-1.5B-Instruct"
+```
+
+**3) 之后照常跑**（compare_detectors.sh / serve_detectors.sh 自动读取上面的配置）：
+```bash
+bash remote/compare_detectors.sh
+```
+
+优先级：`--model`/`--hf` 命令行参数 > `models.env` 配置 > 按 HF id 自动下载。
+临时替换某个检测器也可直接：
+```bash
+cd detectors && python serve_detector.py --id deberta-injection-v2 --model /data/models/别的检测模型 --port 8820
+```
+本地目录里需含 `config.json` / tokenizer / 权重文件（`--local-dir` 下载下来就是完整的）。
+
+## 用真实数据集当初始攻击种子（Gen0）
+
+内置种子只是 6 条中文直球；论文用的是 HarmBench/AgentDojo 这类真实基准。一键导入：
+
+```bash
+cd ~/ams-redteam
+python scripts/import_seeds.py --source all --n 30
+#   → data/seeds_jbb.yaml        JailbreakBench 100条精选（部分源自HarmBench）
+#   → data/seeds_injection.yaml  deepset 1052条真实注入标注样本
+```
+
+config.yaml 里启用（可与内置中文种子叠加，形成中英混合池）：
+```yaml
+seed_file: data/seeds_jbb.yaml          # 越狱种子
+seed_sample: 8                          # Gen0 抽 8 条（控成本；0=全部）
+injection_seed_file: data/seeds_injection.yaml   # 注入种子（可选）
+```
+
+说明：Gen0 只是"静态基线"（对照论文的静态 ASR）；真正的攻击由进化生成。
+但真实种子让基线更有代表性、起点多样性更好。注：两个数据集是英文的，
+中文攻击主力仍是内置种子 + mutator 的多语言变异。
+
+## 常见问题（这个场景专属）
+
+| 症状 | 解决 |
+|---|---|
+| **Gen 全部"解析失败 SKIP"** | Qwen3 思考模型的 `<think>` 占满输出。已修复（config 自动关思考+解析器加固），`git pull` 后重跑；若还失败看 `redteam_output*/mutator_debug_gen*.txt` 里的原文 |
+| **检测器下载 ProxyError/503** | 机器访问不了 huggingface.co。三选一：① models.env 里设 `HF_ENDPOINT="https://hf-mirror.com"` ② 给它配本地路径（ppl-window 可直接复用你已下载的 victim 模型：`DETECTOR_MODEL_OVERRIDES="..., ppl-window=/路径/Qwen2.5-1.5B-Instruct"`）③ 名单里去掉它 |
+| dry-run Mutator FAIL | config.yaml 的 base_url/model 没改成你 llama-server 的（第 2 步） |
+| llama-server 忙不过来/超时 | 正常，27B 吞吐有限；把 config.yaml 里 attacker 的 `timeout` 调大到 1200 |
+| compare_detectors 中途卡在下载 | 首次要下检测器模型（184M~1.5B），等它；之后都走缓存 |
+| 想停掉重来 | `tmux kill-session -t ams`；`lsof -i:8001` 找残留进程 |
+| 检测器启动超时被跳过 | 单独手动起看报错: `cd detectors && python serve_detector.py --id xxx --port 8820` |

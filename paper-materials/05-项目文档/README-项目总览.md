@@ -16,14 +16,7 @@
 
 ---
 
-## 0. 论文相关材料（打包）
-
-**[`paper-materials/`](paper-materials/)** —— 论文《Attacker Moves Second》全套资料的独立资料包：
-核心数据速查（防编数字）、论文 PDF/纯文本、中文详读（06 主论文 + 09 姊妹论文）、
-全文中英对照 HTML、两份演示页面、全套项目文档。喂 GPT 生成分享长图 / 做汇报材料用，
-用法见 [`paper-materials/README.md`](paper-materials/README.md)（含长图生成 Prompt）。
-
-## 1. 不知道从哪开始？按你的情况选：
+## 0. 不知道从哪开始？按你的情况选：
 
 | 你的情况 | 看哪份 |
 |---|---|
