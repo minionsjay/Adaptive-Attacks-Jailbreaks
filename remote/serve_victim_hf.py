@@ -93,6 +93,8 @@ def main():
                     help="HF 模型 id 或本地模型目录的绝对路径")
     ap.add_argument("--port", type=int, default=8001)
     ap.add_argument("--device", default=None, help="cpu / cuda / cuda:0")
+    ap.add_argument("--dtype", default=None, choices=["fp16", "fp32", "bf16"],
+                    help="权重精度（默认: cpu=fp32 / gpu=fp16）。内存紧张时用 fp16")
     ap.add_argument("--alias", default=None, help="对外模型名（config victim.model）")
     ap.add_argument("--hf-home", default=None,
                     help="HF 缓存目录（也可用环境变量 HF_HOME / models.env 统一配置）")
@@ -123,9 +125,11 @@ def main():
     from transformers import AutoTokenizer, AutoModelForCausalLM
     print(f"[victim-hf] loading {hf_id} on {device} ...")
     STATE["tok"] = AutoTokenizer.from_pretrained(hf_id)
-    STATE["model"] = AutoModelForCausalLM.from_pretrained(
-        hf_id,
-        torch_dtype=torch.float16 if device.startswith("cuda") else torch.float32)
+    dtype_map = {"fp16": torch.float16, "fp32": torch.float32,
+                 "bf16": torch.bfloat16}
+    dtype = dtype_map.get(args.dtype) or (
+        torch.float16 if device.startswith("cuda") else torch.float32)
+    STATE["model"] = AutoModelForCausalLM.from_pretrained(hf_id, dtype=dtype)
     STATE["model"].to(device).eval()
     STATE["device"] = device
     STATE["alias"] = args.alias or hf_id.split("/")[-1]
