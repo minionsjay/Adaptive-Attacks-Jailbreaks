@@ -215,11 +215,20 @@ class RobustLLM:
             pass
 
     def health(self):
-        """探测 /models 是否可用（OpenAI 兼容端点均支持）"""
+        """探测服务可用性：先试 /models；网关不实现该端点时回退为最小对话探测"""
         try:
             r = _session_for(self.url).get(f"{self.url}/models", timeout=8)
             r.raise_for_status()
             ids = [m.get("id") for m in r.json().get("data", [])][:4]
             return True, ids
+        except Exception:
+            pass  # 落到对话探测（很多网关只开放 chat/completions）
+        try:
+            # 思考模型的 reasoning 可能吃掉小预算 → 给足 token；只要端点正常应答即算健康
+            content, _ = self.chat(
+                [{"role": "user", "content": "Reply with: ok"}], max_tokens=128)
+            if content:
+                return True, "chat-probe ok (网关未开放/models)"
+            return True, "alive (思考模型probe内容为空，端点应答正常)"
         except Exception as e:
             return False, str(e)[:120]

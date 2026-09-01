@@ -11,6 +11,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"      # 项目根目录
 cd "$HERE"
+export PYTHONUNBUFFERED=1
 
 # 激活本机 venv（setup_env.sh 创建）
 if [ -f "${AMS_HOME:-$HOME/ams}/venv/bin/activate" ]; then

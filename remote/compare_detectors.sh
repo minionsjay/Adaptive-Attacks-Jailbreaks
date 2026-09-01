@@ -19,6 +19,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$HERE"
+export PYTHONUNBUFFERED=1
 
 # venv（没有就用当前 python —— 前提是已装 requirements.txt）
 if [ -f "${AMS_HOME:-$HOME/ams}/venv/bin/activate" ]; then
