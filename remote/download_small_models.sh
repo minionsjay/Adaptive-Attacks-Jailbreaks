@@ -44,7 +44,8 @@ sels = sys.argv[1:]
 with_gated = os.environ.get("WITH_GATED") == "1"
 
 # 实测(401探测): meta-llama 全系(含86M/22M)都需 HF 账号接受许可
-NON_GATED_DET = ["deberta-injection-v2", "deberta-injection-v1", "ppl-window"]
+NON_GATED_DET = ["deberta-injection-v2", "deberta-injection-v1", "ppl-window",
+                 "qwen3guard-0.6b", "granite-guardian-2b"]
 GATED_DET = ["prompt-guard-86m", "prompt-guard-2-86m", "prompt-guard-2-22m",
              "prompt-guard-2-2b", "llama-guard-3-1b"]
 VICTIM_CORE = ["qwen2.5-1.5b", "smollm2-360m", "r1-distill-qwen-1.5b"]

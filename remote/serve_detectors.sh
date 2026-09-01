@@ -27,6 +27,8 @@ declare -A PORTS=(
   [deberta-injection-v2]=8820
   [deberta-injection-v1]=8821
   [keyword-baseline]=8830
+  [qwen3guard-0.6b]=8850
+  [granite-guardian-2b]=8851
   [ppl-window]=8840
   [llama-guard-3-1b]=8841
 )

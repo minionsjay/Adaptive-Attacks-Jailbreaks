@@ -173,6 +173,72 @@ class GenerativeGuardBackend(DetectorBackend):
                 "raw_output": ans[:20], "threshold": self.threshold}
 
 
+class Qwen3GuardBackend(DetectorBackend):
+    """Qwen3Guard-Gen（生成式守卫）：输出 'Safety: Unsafe/Safe/Controversial'"""
+
+    def __init__(self, model_id, device="cpu", threshold=0.5):
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        import torch
+        self.torch = torch
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, dtype=torch.float32 if device == "cpu" else torch.bfloat16)
+        self.model.to(device).eval()
+        self.device, self.threshold = device, threshold
+        self.name, self.labels, self.kind = model_id, ["Safe", "Unsafe"], "qwen3guard"
+
+    def detect(self, text, context=None):
+        enc = self.tokenizer.apply_chat_template(
+            [{"role": "user", "content": (text or "")[:3500]}],
+            add_generation_prompt=True, return_dict=True, return_tensors="pt").to(self.device)
+        with self.torch.no_grad():
+            out = self.model.generate(**enc, max_new_tokens=24, do_sample=False,
+                                      pad_token_id=self.tokenizer.eos_token_id)
+        ans = self.tokenizer.decode(out[0][enc["input_ids"].shape[1]:],
+                                    skip_special_tokens=True).lower()
+        if "unsafe" in ans:
+            score = 0.9
+        elif "controversial" in ans:
+            score = 0.5
+        else:
+            score = 0.1
+        label = "Unsafe" if score >= 0.5 else "Safe"
+        return {"label": label, "score": score, "confidence": score,
+                "all_scores": {"Unsafe": score, "Safe": round(1 - score, 3)},
+                "raw_output": ans[:60], "threshold": self.threshold}
+
+
+class GraniteGuardianBackend(DetectorBackend):
+    """IBM Granite Guardian（生成式守卫）：输出 Yes(有风险)/No"""
+
+    def __init__(self, model_id, device="cpu", threshold=0.5):
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        import torch
+        self.torch = torch
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, dtype=torch.float32 if device == "cpu" else torch.bfloat16)
+        self.model.to(device).eval()
+        self.device, self.threshold = device, threshold
+        self.name, self.labels, self.kind = model_id, ["No", "Yes"], "graniteguardian"
+
+    def detect(self, text, context=None):
+        enc = self.tokenizer.apply_chat_template(
+            [{"role": "user", "content": (text or "")[:3500]}],
+            add_generation_prompt=True, return_dict=True, return_tensors="pt").to(self.device)
+        with self.torch.no_grad():
+            out = self.model.generate(**enc, max_new_tokens=8, do_sample=False,
+                                      pad_token_id=self.tokenizer.eos_token_id)
+        ans = self.tokenizer.decode(out[0][enc["input_ids"].shape[1]:],
+                                    skip_special_tokens=True).strip().lower()
+        risky = ans.startswith("yes")
+        score = 0.9 if risky else 0.1
+        return {"label": "Yes" if risky else "No", "score": score,
+                "confidence": score,
+                "all_scores": {"Yes": score, "No": round(1 - score, 3)},
+                "raw_output": ans[:20], "threshold": self.threshold}
+
+
 class KeywordBackend(DetectorBackend):
     def __init__(self):
         self.impl = KeywordBaseline()
@@ -334,6 +400,12 @@ def build_backend(det_id: str, device: Optional[str] = None,
     if cfg["kind"] == "llamaguard":
         return LlamaGuardBackend(src, device=dev,
                                  threshold=cfg.get("threshold", 0.5))
+    if cfg["kind"] == "qwen3guard":
+        return Qwen3GuardBackend(src, device=dev,
+                                 threshold=cfg.get("threshold", 0.5))
+    if cfg["kind"] == "graniteguardian":
+        return GraniteGuardianBackend(src, device=dev,
+                                      threshold=cfg.get("threshold", 0.5))
     raise ValueError(cfg["kind"])
 
 
