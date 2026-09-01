@@ -42,7 +42,8 @@ echo "[attacker] 使用模型: $TARGET"
 # GPU 数量检测（CUDA 与 ROCm 通用）；单卡不加 tensor-split
 NGPU=0
 if command -v rocm-smi >/dev/null 2>&1; then
-  NGPU=$(rocm-smi --showid --csv 2>/dev/null | grep -c "^gpu" || echo 0)
+  NGPU=$(rocm-smi --showid --csv 2>/dev/null | grep -c "^gpu")
+  [ -z "$NGPU" ] && NGPU=0
 elif command -v nvidia-smi >/dev/null 2>&1; then
   NGPU=$(nvidia-smi --list-gpus 2>/dev/null | wc -l)
 fi
