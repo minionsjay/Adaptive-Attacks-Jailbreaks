@@ -29,13 +29,34 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121 || pip inst
 # 项目全部依赖（runner ams 包 + 检测器 transformers 后端 + 服务）
 pip install -r "$REPO/requirements.txt"
 
-# ---------- llama.cpp（CUDA 构建，Volta sm_70 官方支持）----------
+# ---------- llama.cpp（自动检测 GPU 后端: CUDA / ROCm(HIP) / Vulkan / CPU）----------
 if [ ! -d "$AMS_HOME/llama.cpp" ]; then
   git clone https://github.com/ggerganov/llama.cpp "$AMS_HOME/llama.cpp"
 fi
 cd "$AMS_HOME/llama.cpp"
 
-# 可选：HauhauCS FastMTP 运行时补丁（更高吞吐；不打的补丁时 embedded MTP 仍可用）
+# 后端检测（可用 LLAMA_BACKEND=hip|cuda|vulkan|cpu 强制指定）
+detect_backend() {
+  if [ -n "${LLAMA_BACKEND:-}" ]; then echo "$LLAMA_BACKEND"; return; fi
+  if command -v rocm-smi >/dev/null 2>&1; then echo "hip"
+  elif command -v nvidia-smi >/dev/null 2>&1; then echo "cuda"
+  else echo "cpu"; fi
+}
+BACKEND="$(detect_backend)"
+echo "[setup] llama.cpp 后端: $BACKEND"
+case "$BACKEND" in
+  hip)
+    GFX_TARGET=$(rocminfo 2>/dev/null | grep -m1 -oE "gfx[0-9a-f]+" || true)
+    echo "[setup] AMD GPU target: ${GFX_TARGET:-未检出,用默认}"
+    BUILD_FLAGS=(-DGGML_HIP=ON)
+    [ -n "$GFX_TARGET" ] && BUILD_FLAGS+=(-DAMDGPU_TARGETS="$GFX_TARGET")
+    ;;
+  cuda) BUILD_FLAGS=(-DGGML_CUDA=ON) ;;
+  vulkan) BUILD_FLAGS=(-DGGML_VULKAN=ON) ;;
+  *) BUILD_FLAGS=() ;;
+esac
+
+# （FastMTP 补丁可选；构建后端已自动检测，见上方 detect_backend）
 if [ "${FASTMTP_PATCH:-0}" = "1" ]; then
   curl -L -o HauhauCS-FastMTP-llama.cpp.patch \
     "https://huggingface.co/HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF/resolve/main/HauhauCS-FastMTP-llama.cpp.patch"
@@ -43,7 +64,7 @@ if [ "${FASTMTP_PATCH:-0}" = "1" ]; then
   git apply HauhauCS-FastMTP-llama.cpp.patch || echo "[setup] FastMTP patch 跳过（可能已应用）"
 fi
 
-cmake -S . -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "${BUILD_FLAGS[@]}"
 cmake --build build --config Release -j"$(nproc)"
 "$AMS_HOME/llama.cpp/build/bin/llama-server" --version || true
 

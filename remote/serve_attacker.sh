@@ -39,12 +39,25 @@ fi
   3) bash download_model.sh 自动下载"; exit 1; }
 echo "[attacker] 使用模型: $TARGET"
 
+# GPU 数量检测（CUDA 与 ROCm 通用）；单卡不加 tensor-split
+NGPU=0
+if command -v rocm-smi >/dev/null 2>&1; then
+  NGPU=$(rocm-smi --showid --csv 2>/dev/null | grep -c "^gpu" || echo 0)
+elif command -v nvidia-smi >/dev/null 2>&1; then
+  NGPU=$(nvidia-smi --list-gpus 2>/dev/null | wc -l)
+fi
+TS_ARGS=()
+if [ "$NGPU" -ge 2 ]; then
+  TS_ARGS=(--tensor-split 0.5,0.5)   # 多卡均分（2卡；3+卡请自行调整比例）
+fi
+echo "[attacker] 检测到 GPU 数: $NGPU"
+
 CMD=("$AMS_HOME/llama.cpp/build/bin/llama-server"
   -m "$TARGET"
   --alias "Qwen3.8-27B-Uncensored-Aggressive"
   --host 0.0.0.0 --port "$PORT"
-  -ngl 999                          # 全层上 GPU
-  --tensor-split 0.5,0.5            # 双卡均分
+  -ngl 999                          # 全层上 GPU（显存不足时会自动部分offload失败,需减量化）
+  "${TS_ARGS[@]}"
   -c "$CTX"
   --flash-attn "$FA"
   --jinja                           # 使用 GGUF 内置 Qwen3.8 chat template
