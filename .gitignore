@@ -23,3 +23,6 @@ nohup.out
 # 机器本地配置（每台机器自己的，不入库；模板见 *.example）
 config.yaml
 remote/models.env
+
+# 用户本地外挂词库（每台机器自己的，不入库）
+detectors/wordlists/extra_*.txt
