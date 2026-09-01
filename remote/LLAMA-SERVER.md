@@ -89,6 +89,34 @@ cmake --build build --config Release -j$(nproc)
 
 **建议**：先用路线 A 跑通整个评估流程；确认值得再上路线 B（同样的评估会快一半左右）。
 
+## 四点五、AMD GPU（ROCm）单卡部署 —— 以 RX 9070 XT 17GB 为例
+
+`setup_env.sh` 已自动检测：机器有 `rocm-smi` 就用 **HIP 后端**构建
+（自动带 `-DAMDGPU_TARGETS=gfx1201` 这类目标）；`serve_attacker.sh` 自动识别单卡
+（不再加 tensor-split）。手动强制后端：`LLAMA_BACKEND=hip|cuda|vulkan|cpu bash setup_env.sh`。
+
+**17GB 单卡量化选型**（27B）：
+
+| 量化 | 大小 | 可行性 |
+|---|---|---|
+| **IQ3_M（推荐）** | 12.8GB | ✓ 剩余空间放 KV(16-24K ctx)+缓冲 |
+| Q3_K_P | 13.4GB | ✓ 刚好（16K ctx） |
+| IQ4_XS | 15.7GB | ✗ KV 挤不进（除非 4K ctx，太小） |
+| Q4_K_P+ | 17.9GB | ✗ 放不下 |
+
+```bash
+# 构建（自动 HIP）+ 下载适配量化的模型：
+LLAMA_BACKEND=hip bash setup_env.sh          # 或不设变量让它自动检测
+QUANT=IQ3_M CTX=16384 bash download_model.sh
+bash serve_attacker.sh                        # 单卡自动不加 tensor-split
+```
+
+- Volta 关 flash-attn 的经验对 RDNA4 同样适用：保持 `FA=0`
+- 若 HIP 构建有兼容问题（RDNA4 较新），退路是 **Vulkan 后端**：
+  `LLAMA_BACKEND=vulkan bash setup_env.sh`（RDNA4 的 Vulkan 支持很好）
+- 本机就是"单机模式"全套：27B attacker + victim(CPU) + 检测器(CPU) + runner 全在这台机器
+- 显存预估：IQ3_M 权重 12.8GB + KV 16K ≈1GB + 缓冲 ≈1GB ≈ **15GB < 17GB** ✓
+
 ## 五、启动后怎么验证（3 条命令）
 
 ```bash
