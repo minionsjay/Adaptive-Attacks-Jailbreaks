@@ -41,12 +41,14 @@ echo "[attacker] 使用模型: $TARGET"
 
 # GPU 数量检测（CUDA 与 ROCm 通用）；单卡不加 tensor-split
 NGPU=0
-if command -v rocm-smi >/dev/null 2>&1; then
-  NGPU=$(rocm-smi --showid --csv 2>/dev/null | grep -c "^gpu")
-  [ -z "$NGPU" ] && NGPU=0
-elif command -v nvidia-smi >/dev/null 2>&1; then
-  NGPU=$(nvidia-smi --list-gpus 2>/dev/null | wc -l)
+if command -v nvidia-smi >/dev/null 2>&1; then
+  NGPU=$(nvidia-smi --list-gpus 2>/dev/null | wc -l || true)
+elif command -v rocm-smi >/dev/null 2>&1; then
+  # 注意 set -e: grep -c 无匹配时退出码 1，必须 || true
+  NGPU=$(timeout 10 rocm-smi --showid --csv 2>/dev/null | grep -c "^gpu" || true)
 fi
+[ -z "$NGPU" ] && NGPU=0
+# 单卡时 NGPU=0（rocm-smi 在 WSL 下可能不工作），行为等同单卡=不加 tensor-split，安全
 TS_ARGS=()
 if [ "$NGPU" -ge 2 ]; then
   TS_ARGS=(--tensor-split 0.5,0.5)   # 多卡均分（2卡；3+卡请自行调整比例）
