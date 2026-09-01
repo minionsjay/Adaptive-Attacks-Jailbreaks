@@ -12,10 +12,15 @@ echo "[setup] AMS_HOME=$AMS_HOME  (模型与 llama.cpp)"
 echo "[setup] REPO=$REPO  (项目仓库；runner 也将在此运行)"
 mkdir -p "$AMS_HOME"/models && cd "$AMS_HOME"
 
-# ---------- 系统依赖（按需调整包管理器）----------
-if command -v apt-get >/dev/null; then
-  sudo apt-get update -y
-  sudo apt-get install -y build-essential cmake curl git libcurl4-openssl-dev python3-venv
+# ---------- 系统依赖（已有工具链时自动跳过 sudo 安装）----------
+need_apt=0
+for t in cmake gcc g++ git curl; do command -v $t >/dev/null 2>&1 || need_apt=1; done
+if [ "$need_apt" = "1" ] && command -v apt-get >/dev/null; then
+  sudo apt-get update -y && \
+  sudo apt-get install -y build-essential cmake curl git libcurl4-openssl-dev python3-venv || \
+    echo "[setup] ⚠ sudo 安装失败——若编译报缺依赖请手动安装后重跑"
+elif [ "$need_apt" = "1" ]; then
+  echo "[setup] ⚠ 缺少构建工具且非 apt 系统，请自行安装: cmake gcc g++ git curl"
 fi
 
 # ---------- Python venv（服务 + runner 共用）----------
