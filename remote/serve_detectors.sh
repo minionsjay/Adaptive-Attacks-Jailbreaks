@@ -29,6 +29,8 @@ declare -A PORTS=(
   [keyword-baseline]=8830
   [qwen3guard-0.6b]=8850
   [granite-guardian-2b]=8851
+  [qwen3guard-4b]=8852
+  [qwen3guard-8b]=8853
   [ppl-window]=8840
   [llama-guard-3-1b]=8841
 )
