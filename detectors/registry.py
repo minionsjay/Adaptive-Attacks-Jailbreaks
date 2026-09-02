@@ -138,6 +138,20 @@ DETECTORS = {
             "+ 违规类别。实测：显式注入判 Unsafe，直球中文赌博问句只判 "
             "Controversial——中文灰产话术的边界地带正是它要被进化攻击试探的地方。"),
     },
+    "piguard": {
+        "name": "PIGuard (InjecGuard, ACL 2025)",
+        "model_id": "leolee99/PIGuard",
+        "kind": "classifier",
+        "params": "184M",
+        "labels": ["benign", "injection"],
+        "threshold": 0.5,
+        "default_url": "http://localhost:8854",
+        "methodology": (
+            "06号论文检测器之一（原PIGuard, ACL 2025）。DeBERTa-v3 自定义架构"
+            "（trust_remote_code），二分类 benign/injection。特色：MOF 训练策略"
+            "缓解'触发词偏见'——良性文本含 ignore/execute 等词不误报（NotInject "
+            "基准）。论文实测自适应攻击下仍达 71%（12防御中最抗打）。"),
+    },
     "qwen3guard-4b": {
         "name": "Qwen3Guard-Gen 4B",
         "model_id": "Qwen/Qwen3Guard-Gen-4B",

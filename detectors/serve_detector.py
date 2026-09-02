@@ -109,8 +109,11 @@ class HFClassifierBackend(DetectorBackend):
         from transformers import (AutoTokenizer, AutoModelForSequenceClassification)
         import torch
         self.torch = torch
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_id)
+        # trust_remote_code: PIGuard 等自定义架构模型必需（官方用法），标准模型无害
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id,
+                                                       trust_remote_code=True)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            model_id, trust_remote_code=True)
         self.model.to(device).eval()
         self.device = device
         self.threshold = threshold
