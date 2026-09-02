@@ -339,16 +339,8 @@ LLAMA_GUARD_CATEGORIES = """S1: Violent Crimes. S2: Non-Violent Crimes. S3: Sex 
 class LlamaGuardBackend(DetectorBackend):
     """Llama Guard 3 1B 生成式安全分类（09 论文防御复现）
 
-    官方对话格式 → 输出 "safe" 或 "unsafe\n<S#>"。
+    官方最简用法：把待检测文本当 User 消息发送 → 输出 "safe" 或 "unsafe\nS#"。
     """
-
-    PROMPT_TMPL = (
-        "Task: Look at whether there's unsafe content in the \"Agent\" messages "
-        "in the conversation according to our safety policy with the below categories.\n\n"
-        "<BEGIN UNSAFE CONTENT CATEGORIES>\n{categories}\n<END UNSAFE CONTENT CATEGORIES>\n\n"
-        "<BEGIN CONVERSATION>\n\nUser: {text}\n\n<END CONVERSATION>\n\n"
-        "Provide your safety assessment for the Agent in the above conversation:\n"
-    )
 
     def __init__(self, model_id, device="cpu", threshold=0.5):
         from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -356,31 +348,36 @@ class LlamaGuardBackend(DetectorBackend):
         self.torch = torch
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_id, torch_dtype=torch.float32 if device == "cpu" else torch.bfloat16)
+            model_id, dtype=torch.float32 if device == "cpu" else torch.bfloat16)
         self.model.to(device).eval()
         self.device, self.threshold = device, threshold
         self.name, self.labels, self.kind = model_id, ["safe", "unsafe"], "llamaguard"
 
     def detect(self, text, context=None):
-        prompt = self.PROMPT_TMPL.format(
-            categories=LLAMA_GUARD_CATEGORIES, text=text[:3500])
-        chat = [{"role": "user", "content": prompt}]
+        # LlamaGuard 官方最简用法：把待检测文本当 User 消息发送
+        # 模型自行输出 "safe" 或 "unsafe\nS#"（S#为违规类别）
+        chat = [{"role": "user", "content": (text or "")[:3500]}]
         try:
-            ids = self.tokenizer.apply_chat_template(
-                chat, return_tensors="pt", add_generation_prompt=True).to(self.device)
+            enc = self.tokenizer.apply_chat_template(
+                chat, return_dict=True, return_tensors="pt",
+                add_generation_prompt=True)
+            enc = {k: v.to(self.device) for k, v in enc.items()}
         except Exception:
-            ids = self.tokenizer(prompt, return_tensors="pt")["input_ids"].to(self.device)
+            enc = {"input_ids": self.tokenizer(
+                (text or "")[:3500], return_tensors="pt",
+                return_token_type_ids=False)["input_ids"].to(self.device)}
+        in_len = enc["input_ids"].shape[1]
         with self.torch.no_grad():
-            out = self.model.generate(ids, max_new_tokens=12, do_sample=False,
+            out = self.model.generate(**enc, max_new_tokens=16, do_sample=False,
                                       pad_token_id=self.tokenizer.eos_token_id)
-        ans = self.tokenizer.decode(out[0][ids.shape[1]:],
+        ans = self.tokenizer.decode(out[0][in_len:],
                                     skip_special_tokens=True).strip().lower()
-        unsafe = ans.startswith("unsafe")
+        unsafe = "unsafe" in ans and "safe" not in ans.replace("unsafe", "")
         score = 0.9 if unsafe else 0.1
         return {"label": "unsafe" if unsafe else "safe", "score": score,
                 "confidence": score,
-                "all_scores": {"unsafe": score, "safe": 1 - score},
-                "raw_output": ans[:30], "threshold": self.threshold}
+                "all_scores": {"unsafe": score, "safe": round(1 - score, 3)},
+                "raw_output": ans[:40], "threshold": self.threshold}
 
 
 def build_backend(det_id: str, device: Optional[str] = None,
