@@ -542,7 +542,27 @@ class RedTeamHarness:
         self._record(det_card, kind, sid, 0, scored, controller)
 
         # 进化
+        random_mode = evo.get("random_mode", False)
         for gen in range(1, evo["max_generations"] + 1):
+            if random_mode:
+                insp = []
+                feedback = ""
+                island = controller.next_island()
+                cands = self.propose(kind, sid, controller, island, insp,
+                                     feedback, det_card)
+                if not cands:
+                    continue
+                scored = []
+                for c in cands:
+                    c.generation = gen
+                    scored.append(self.score(c, det_card))
+                    controller.add(c)
+                    print(self._brief(c))
+                self.results.extend(scored)
+                n_bp = sum(1 for c in scored if c.success)
+                print(f"Gen {gen:2d}: [随机] {len(scored)} 候选 | 绕过 {n_bp}")
+                self._record(det_card, kind, sid, gen, scored, controller)
+                continue
             self._gen = gen
             t0 = time.time()
             island = controller.next_island()
